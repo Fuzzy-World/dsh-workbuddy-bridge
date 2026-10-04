@@ -13,7 +13,10 @@
   **本机维护者的 profile 走 `link:` 形态**（2026-10-02 起）：依赖指向本仓、`bundles` 摘除本插件、`cordis.patch.yml` 手动 insert、
   `node_modules/<包名>` 是 symlink。所以 `build` 完**只需重启 dsh**，不用再同步 `lib/`。
   四步与三条判据、回滚方式见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「本地开发装法」。
-- **`lib/` 是被跟踪的产物**（本仓与另两个插件仓不同）：`link:` 装法直接读它，所以改源码后要重建并**连同源码一起提交**。
+- **`lib/` 是构建产物，不跟踪**（与另两个插件仓一致）：`.gitignore` 忽略它，
+  由 `pnpm build`（或 `pnpm check`）产出。`link:` 装法直接读它，所以**改源码后必须重建**，
+  否则跑的是旧产物 —— 但**不必提交**它：发布流程自己跑 build，不依赖 git 里的产物。
+  clone 之后第一件事是 `pnpm install && pnpm build`。
 
 ## 全局规则
 

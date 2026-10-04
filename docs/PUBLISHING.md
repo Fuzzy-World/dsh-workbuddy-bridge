@@ -37,7 +37,8 @@
 - **手动触发**：Actions → Release → Run workflow（或 `gh workflow run release.yml`）。只接受从 main 触发；tag 由流程补建。
 
 - **版本驱动**：workflow 只发 `package.json` 里那个号，**它不 bump**。bump 是发布前的本地一步：
-  `pnpm version <patch|minor|major> --no-git-tag-version` → 重建 `lib/` → 提交 → （渲染面改动先重截图）→ 推 main → 打 tag。
+  `pnpm version <patch|minor|major> --no-git-tag-version` → 重建 `lib/` → 提交（**只提交源码与 `package.json`，
+  `lib/` 不入库**）→ （渲染面改动先重截图）→ 推 main → 打 tag。
 - **dist-tag 由版本自己推**：带预发布段（如 `0.3.0-alpha.1`）发到同名 dist-tag（`alpha`），`latest` 不动；稳定版发 `latest`。
 - **守卫**：上个 tag 以来只有文档 / 测试 / CI / 工具脚本改动时红（[scripts/release-guard.mjs](../scripts/release-guard.mjs)）；
   首次发布没有历史 tag，守卫自动跳过。确需越过用 force 输入（手动触发才有）。
@@ -84,7 +85,9 @@
 - 重启后 `/plugins/<包名>/status` 正常返回，且 `probe` 键是新形状
 
 **收益**：之后 `build` 完只需重启 dsh 进程（宿主半只在启动时装载一次），不用再拷文件。
-**代价**：仓库 `lib/` 必须始终是构建过的状态 —— link 直接读它，没 build 就是旧产物或缺失。
+**代价**：仓库 `lib/` 必须**先构建过** —— link 直接读它，没 build 就是缺失或旧产物。
+它**不入库**（`.gitignore` 忽略），所以 clone 之后第一件事是 `pnpm install && pnpm build`；
+发布流程同样如此（[release.yml](../.github/workflows/release.yml) 自己跑 build，不依赖 git 里的产物）。
 
 回滚：把四步各自还原（备份见 profile 下的 `*.bak-link-<时间戳>`），或直接改回版本号依赖 + 恢复 bundle 条目。
 
