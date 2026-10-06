@@ -85,6 +85,9 @@ pnpm install && pnpm build
 dsh plugin --profile web add "$PWD"
 ```
 
+⚠️ 上面那步 `pnpm install` 不能省：`link:` 装法下依赖由仓库自己提供（见[本地开发装法](docs/PUBLISHING.md)），
+漏装则插件显示「未运行」（`ERR_MODULE_NOT_FOUND`）。
+
 ## 插件页
 
 侧边栏 **插件（Plugins）** → 已安装 → 点 **DSH WorkBuddy Bridge**。配置区在描述下面，保存即生效：

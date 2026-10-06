@@ -93,6 +93,10 @@ pnpm install && pnpm build
 dsh plugin --profile web add "$PWD"
 ```
 
+⚠️ The `pnpm install` above is not optional: under the `link:` form the repository supplies
+its own dependencies (see [local development setup](docs/PUBLISHING.md)) — skip it and the
+plugin shows as "not running" (`ERR_MODULE_NOT_FOUND`).
+
 ## The plugin page
 
 Sidebar **Plugins** → installed → click **DSH WorkBuddy Bridge**. The configuration area sits right under

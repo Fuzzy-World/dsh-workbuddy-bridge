@@ -70,6 +70,11 @@
 改源码要能立刻见效，装法必须是 `link:`。**默认装法是真实目录副本**，`build` 完不会自动生效，
 每次都得手动同步 `lib/` 再重启 —— 而且半同步（只换客户端半）会让控件整个不渲染。
 
+**前提**：`link:` 到 profile 外的插件按 **realpath** 解析 `@deepseek-ai/*` —— realpath 在仓库里，
+向上走碰不到 `$DSH_HOME/profiles/node_modules` 那个兜底目录（它只对**装在 profile 里**的插件可用）。
+所以**被链接的仓库必须自己装好 peer deps**（`pnpm install` 会做到），否则报 `ERR_MODULE_NOT_FOUND`、
+插件显示「未运行」。
+
 **四步，缺一步都挂不上或双挂载：**
 
 1. profile 的 `package.json`：依赖改 `"dsh-workbuddy-bridge": "link:<本仓绝对路径>"`
