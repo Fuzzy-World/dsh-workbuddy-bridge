@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveEfforts } from '../src/probe/efforts.ts'
+import { resolveDefaultEffort, resolveEfforts } from '../src/probe/efforts.ts'
 import { reasoningFields } from '../src/llm/adapter.ts'
 import type { WorkBuddyModelInfo } from '../src/catalog/index.ts'
 import type { WorkBuddyProbeRecord } from '../src/probe/store.ts'
@@ -187,6 +187,121 @@ describe('resolveEfforts', () => {
       reasoning: { supports: true, onlyReasoning: true, canDisableThinking: true },
     })
     expect(resolveEfforts(undeclared, record('validating', ['low'])).canDisable).toBe(false)
+  })
+})
+
+describe('resolveDefaultEffort', () => {
+  /**
+   * The rule that removes the host picker's "Default" item.
+   *
+   * The host adds that item exactly when a model reports no default, so this
+   * function's answer *is* the picker's behaviour: `undefined` here means the
+   * user sees "Default" again. Two invariants carry the weight, and both are
+   * asserted for every case rather than case by case:
+   *
+   * - the answer is always a member of the offered set (naming a level the
+   *   model cannot accept would fail every request that omits an effort), and
+   * - the answer is present exactly when the model has a switch at all.
+   */
+  function settled(overrides: Partial<WorkBuddyModelInfo>) {
+    const info = model(overrides)
+    const offered = resolveEfforts(info).efforts
+    const effort = resolveDefaultEffort(info, offered)
+    if (effort !== undefined) expect(offered).toContain(effort)
+    return { info, offered, effort }
+  }
+
+  it('uses the upstream-declared default when the offered set contains it', () => {
+    const { effort } = settled({
+      reasoning: {
+        supports: true,
+        onlyReasoning: true,
+        supportedEfforts: ['low', 'high', 'max'],
+        defaultEffort: 'high',
+        canDisableThinking: true,
+      },
+    })
+    // The live `deepseek-v4.1-flash` row: the screenshot's case.
+    expect(effort).toBe('high')
+  })
+
+  it('honours a declared default that is not `high`', () => {
+    // `space-bunny` declares max; the answer must not be flattened to high.
+    const { effort } = settled({
+      reasoning: {
+        supports: true,
+        onlyReasoning: true,
+        supportedEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+        defaultEffort: 'max',
+        canDisableThinking: false,
+      },
+    })
+    expect(effort).toBe('max')
+  })
+
+  it('falls back to `high` when a declared set names no default', () => {
+    const { effort } = settled({
+      reasoning: {
+        supports: true,
+        onlyReasoning: true,
+        supportedEfforts: ['low', 'high', 'max'],
+        canDisableThinking: false,
+      },
+    })
+    expect(effort).toBe('high')
+  })
+
+  it('never answers with a level outside the offered set', () => {
+    // A stale default that a narrowed declaration no longer offers: `low` is
+    // not sendable here, so `high` is the answer rather than a rejected request.
+    const { effort } = settled({
+      reasoning: {
+        supports: true,
+        onlyReasoning: true,
+        supportedEfforts: ['high'],
+        defaultEffort: 'low',
+        canDisableThinking: false,
+      },
+    })
+    expect(effort).toBe('high')
+  })
+
+  it('falls back to the first offered level when the set excludes `high`', () => {
+    // The fallback must stay inside the set: `high` would be unsendable here.
+    const { effort } = settled({
+      reasoning: {
+        supports: true,
+        onlyReasoning: true,
+        supportedEfforts: ['low', 'max'],
+        canDisableThinking: false,
+      },
+    })
+    expect(effort).toBe('low')
+  })
+
+  it('uses an observed set, which is the only source for an undeclared row', () => {
+    const info = model({
+      reasoning: { supports: true, onlyReasoning: true, canDisableThinking: false },
+    })
+    expect(resolveDefaultEffort(info, resolveEfforts(info).efforts)).toBeUndefined()
+    expect(
+      resolveDefaultEffort(
+        info,
+        resolveEfforts(info, record('validating', ['low', 'high'])).efforts,
+      ),
+    ).toBe('high')
+  })
+
+  it('answers nothing for a model with no switch, so Default stays available', () => {
+    // No switch: the picker offers no levels at all and there is no default to
+    // pin. `undefined` is what keeps `defaultEffort` absent from the answer.
+    for (const info of [
+      model({ reasoning: { supports: false, onlyReasoning: false, canDisableThinking: true } }),
+      model(),
+      model({ reasoning: { supports: true, onlyReasoning: true, canDisableThinking: false } }),
+    ]) {
+      expect(resolveDefaultEffort(info, resolveEfforts(info).efforts)).toBeUndefined()
+    }
   })
 })
 
