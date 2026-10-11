@@ -138,6 +138,12 @@
   （`DSH` / `宿主` / `Harness`）又出现 `package.json` 里那个下限值、而该段没点出处也没标历史 → 打一条 warning 给人判一眼。
   写历史陈述请用仓库陈词（`先例` / `当时` / `历史` / `X 起`）；判据与替代方案见
   [.agents/notes/2026-10-01-live-doc-host-version-guard.md](.agents/notes/2026-10-01-live-doc-host-version-guard.md)
+- **katex 的 low 告警（GHSA-238p-pmpm-9mq7）消不掉，修复方是宿主包**：本仓直接依赖那份 katex 已是 `^0.18.2`
+  （锁里 0.18.10），残留的 vulnerable 实例挂在 `micromark-extension-math@3.1.0` 上（pnpm 快照精确钉死 `katex: 0.16.47`，
+  上游 registry 声明 `^0.16.0` 且**无更新版本可升**）。它**不是死依赖**——`@deepseek-ai/dsh-client-ui-primitives`
+  的 manifest `dependencies: null`，却在 `lib/index.js` 运行时 import 它，本仓 devDependencies 声明它正是替宿主包补位。
+  **实测 `pnpm remove` 会打断宿主包**（3 个 browser 测试红）；`pnpm.overrides` 会把兼容性责任转到本仓，不值。
+  正确修复方是宿主包声明缺失的依赖，或上游发新版。
 
 ## 文档网络与自更新
 
