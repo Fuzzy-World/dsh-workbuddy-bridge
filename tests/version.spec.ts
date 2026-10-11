@@ -99,9 +99,10 @@ describe('package version sync', () => {
   })
 
   /**
-   * `lib/` is tracked in this repository, so every emitted class map must be in a
-   * stable order: an unstable build turns every rebuild into a diff and makes
-   * "did the artifact change?" unanswerable. Each map is emitted as
+   * A non-deterministic build makes "did the artifact change?" unanswerable and
+   * turns every rebuild into a diff. `lib/` is not tracked any more, but the
+   * stability still matters: the same source must produce the same bytes, or
+   * nothing downstream can be compared. Each class map is emitted as
    * `"<local>": "<hash>_<local>"` pairs — assert each one comes out sorted.
    *
    * Guards tsdown.config.ts's cssModulesPlugin, which sorts the keys before

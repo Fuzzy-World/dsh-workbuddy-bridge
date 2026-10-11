@@ -37,7 +37,8 @@
 - **手动触发**：Actions → Release → Run workflow（或 `gh workflow run release.yml`）。只接受从 main 触发；tag 由流程补建。
 
 - **版本驱动**：workflow 只发 `package.json` 里那个号，**它不 bump**。bump 是发布前的本地一步：
-  `pnpm version <patch|minor|major> --no-git-tag-version` → 重建 `lib/` → 提交 → （渲染面改动先重截图）→ 推 main → 打 tag。
+  `pnpm version <patch|minor|major> --no-git-tag-version` → 重建 `lib/` → 提交（**只提交源码与 `package.json`，
+  `lib/` 不入库**）→ （渲染面改动先重截图）→ 推 main → 打 tag。
 - **dist-tag 由版本自己推**：带预发布段（如 `0.3.0-alpha.1`）发到同名 dist-tag（`alpha`），`latest` 不动；稳定版发 `latest`。
 - **守卫**：上个 tag 以来只有文档 / 测试 / CI / 工具脚本改动时红（[scripts/release-guard.mjs](../scripts/release-guard.mjs)）；
   首次发布没有历史 tag，守卫自动跳过。确需越过用 force 输入（手动触发才有）。
@@ -69,6 +70,11 @@
 改源码要能立刻见效，装法必须是 `link:`。**默认装法是真实目录副本**，`build` 完不会自动生效，
 每次都得手动同步 `lib/` 再重启 —— 而且半同步（只换客户端半）会让控件整个不渲染。
 
+**前提**：`link:` 到 profile 外的插件按 **realpath** 解析 `@deepseek-ai/*` —— realpath 在仓库里，
+向上走碰不到 `$DSH_HOME/profiles/node_modules` 那个兜底目录（它只对**装在 profile 里**的插件可用）。
+所以**被链接的仓库必须自己装好 peer deps**（`pnpm install` 会做到），否则报 `ERR_MODULE_NOT_FOUND`、
+插件显示「未运行」。
+
 **四步，缺一步都挂不上或双挂载：**
 
 1. profile 的 `package.json`：依赖改 `"dsh-workbuddy-bridge": "link:<本仓绝对路径>"`
@@ -84,7 +90,9 @@
 - 重启后 `/plugins/<包名>/status` 正常返回，且 `probe` 键是新形状
 
 **收益**：之后 `build` 完只需重启 dsh 进程（宿主半只在启动时装载一次），不用再拷文件。
-**代价**：仓库 `lib/` 必须始终是构建过的状态 —— link 直接读它，没 build 就是旧产物或缺失。
+**代价**：仓库 `lib/` 必须**先构建过** —— link 直接读它，没 build 就是缺失或旧产物。
+它**不入库**（`.gitignore` 忽略），所以 clone 之后第一件事是 `pnpm install && pnpm build`；
+发布流程同样如此（[release.yml](../.github/workflows/release.yml) 自己跑 build，不依赖 git 里的产物）。
 
 回滚：把四步各自还原（备份见 profile 下的 `*.bak-link-<时间戳>`），或直接改回版本号依赖 + 恢复 bundle 条目。
 

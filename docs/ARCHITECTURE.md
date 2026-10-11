@@ -182,6 +182,7 @@ src/
 - **`canDisableThinking` 的缺省不对称**：行内没有 `reasoning` 块时缺省 `true`（这种行 adapter 根本不会发 effort，值无关紧要）；**有**块但没写这个字段时严格 `=== true`（这类是会在 wire 上拒绝 `off` 的老模型）。不要"统一"成一边。
 - **上游解析的严格性**（`src/protocol/client.ts`）：字段一律 `typeof` 收窄，不用 schema 校验库替代——schemastery 会把 `'120'` 强转成 `120`、给缺失的可选子对象补 `{}`，两类静默转换分别破坏"usage 字段非数字要报错"和"reasoning 块缺省"两条已测行为。
 - **探测记录的账号归属**：每条观测绑定产生它的账号，切换账号后旧账号的观测不消失（留在盘上）但不再被读出。
+- **默认档位必须是档位集成员**（`resolveDefaultEffort`，`src/probe/efforts.ts`）：报一个档位集之外的档位，会让每个省略档位的请求以 `UNSUPPORTED_REASONING_EFFORT` 失败——判据的"集合内兜底"（声明优先 → `high` → 集合首项）不是实现细节，是用户可感知行为的契约。
 
 ## 测试
 

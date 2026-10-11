@@ -37,7 +37,8 @@ pnpm run lint && pnpm run format
 ## 提交纪律
 
 - 按逻辑拆小 commit：一个 commit 说清「做了什么 / 为什么 / 怎么验证 / 怎么回滚」。
-- **`lib/` 是被跟踪的产物**：改源码后要重建并连同源码一起提交。
+- **`lib/` 不入库**（`.gitignore` 忽略）：改源码后要重建才能生效，但**不必提交**产物 ——
+  发布流程自己跑 build。clone 之后先 `pnpm install && pnpm build`。
 - 提交信息写清楚动机，不写流水账；渲染面改动要么同批带重截图，要么在 commit body 里写明为什么不重截
   （判据见 [assets/AGENTS.md](assets/AGENTS.md)）。
 - 行为 / 契约变化在同一次改动内 bump 版本，语义见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。

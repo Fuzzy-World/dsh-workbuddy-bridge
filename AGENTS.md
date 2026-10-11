@@ -13,7 +13,10 @@
   **本机维护者的 profile 走 `link:` 形态**（2026-10-02 起）：依赖指向本仓、`bundles` 摘除本插件、`cordis.patch.yml` 手动 insert、
   `node_modules/<包名>` 是 symlink。所以 `build` 完**只需重启 dsh**，不用再同步 `lib/`。
   四步与三条判据、回滚方式见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「本地开发装法」。
-- **`lib/` 是被跟踪的产物**（本仓与另两个插件仓不同）：`link:` 装法直接读它，所以改源码后要重建并**连同源码一起提交**。
+- **`lib/` 是构建产物，不跟踪**（与另两个插件仓一致）：`.gitignore` 忽略它，
+  由 `pnpm build`（或 `pnpm check`）产出。`link:` 装法直接读它，所以**改源码后必须重建**，
+  否则跑的是旧产物 —— 但**不必提交**它：发布流程自己跑 build，不依赖 git 里的产物。
+  clone 之后第一件事是 `pnpm install && pnpm build`。
 
 ## 全局规则
 
@@ -135,6 +138,12 @@
   （`DSH` / `宿主` / `Harness`）又出现 `package.json` 里那个下限值、而该段没点出处也没标历史 → 打一条 warning 给人判一眼。
   写历史陈述请用仓库陈词（`先例` / `当时` / `历史` / `X 起`）；判据与替代方案见
   [.agents/notes/2026-10-01-live-doc-host-version-guard.md](.agents/notes/2026-10-01-live-doc-host-version-guard.md)
+- **katex 的 low 告警（GHSA-238p-pmpm-9mq7）消不掉，修复方是宿主包**：本仓直接依赖那份 katex 已是 `^0.18.2`
+  （锁里 0.18.10），残留的 vulnerable 实例挂在 `micromark-extension-math@3.1.0` 上（pnpm 快照精确钉死 `katex: 0.16.47`，
+  上游 registry 声明 `^0.16.0` 且**无更新版本可升**）。它**不是死依赖**——`@deepseek-ai/dsh-client-ui-primitives`
+  的 manifest `dependencies: null`，却在 `lib/index.js` 运行时 import 它，本仓 devDependencies 声明它正是替宿主包补位。
+  **实测 `pnpm remove` 会打断宿主包**（3 个 browser 测试红）；`pnpm.overrides` 会把兼容性责任转到本仓，不值。
+  正确修复方是宿主包声明缺失的依赖，或上游发新版。
 
 ## 文档网络与自更新
 

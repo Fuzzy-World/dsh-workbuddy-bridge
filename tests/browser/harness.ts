@@ -94,6 +94,13 @@ export function useBrowserStubs(): FetchStub {
     posts.length = 0
     pending = []
     armed.clear()
+    /*
+     * Freeze the clock so a timestamp fixture and the assertion reading it back
+     * cannot land in different minutes. Only `Date` is faked: the interval stub
+     * above owns `setInterval` itself, and faking it here would fight that stub
+     * (the 05:46/05:47 CI red on the en runner was exactly this minute boundary).
+     */
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-19T12:00:00Z') })
     stub.body = signedIn()
     stub.postReply = { state: 'ok', validation: 'non-validating', efforts: [] }
     stub.call.mockReset().mockImplementation(async (url: string, init?: RequestInit) => {
@@ -121,6 +128,7 @@ export function useBrowserStubs(): FetchStub {
     })
   })
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
   return stub
