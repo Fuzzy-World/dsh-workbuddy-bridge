@@ -83,3 +83,19 @@ jobs:
       # 发布态不变量：bundle patch / engines.dsh / files 覆盖 / locale 与 icon 那几条。
       - name: Release invariants
         run: pnpm run check:release
+
+  # 收口 job —— ruleset 的 required_status_checks 只配这一个名字（CI Success），
+  # 本仓内部 job 增删时规则集无需改动（与 ds-balance / zhihu / Cogniform 9 仓同款判据）。
+  # 三条不能动：判定只放 step 级（job 级会 skipped 假绿）、needs 列全、skipped 一并判红。
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [verify]
+    if: always()
+    steps:
+      - name: Verify all jobs succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
+          echo "::error::有 job 未成功 —— CI Success 判红（原因见本 job 上方注释）"
+          echo '${{ toJSON(needs) }}'
+          exit 1
