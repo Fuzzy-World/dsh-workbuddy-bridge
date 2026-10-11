@@ -48,7 +48,8 @@ models appear directly in the DSH model picker — no separate provider to confi
   models, accounts and credit never mix, and each follows only its own app's sign-in.
 - **Reasoning levels** — models that declare levels expose them directly; the rest can be **checked manually**
   on the plugin page. The bulb means "this model can switch levels"; a declared model shows it too, it just
-  has nothing to detect.
+  has nothing to detect. A switchable model also carries a **default level** (the upstream's own declaration
+  when it has one, otherwise `high`), so the picker no longer offers "Default".
 - **Credit in view** — each reply shows what it consumed, and remaining credit sits beside the model picker.
   Nothing renders when a figure is unavailable.
 - **Model visibility** — tick which models appear in the picker on the card's "Models" tab, saved per

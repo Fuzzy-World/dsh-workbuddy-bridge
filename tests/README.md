@@ -15,7 +15,8 @@
 - desktop-credential-protection.spec.ts
 - desktop-doctor.spec.ts
 - dual-routes.spec.ts
-- efforts.spec.ts —— `resolveEfforts()` 的判据表，含 adapter 与状态文档逐例一致（两半体不能各答一套）
+- efforts.spec.ts —— `resolveEfforts()` 的判据表，含 adapter 与状态文档逐例一致（两半体不能各答一套）；
+  另含 `resolveDefaultEffort()`：默认档位永远落在档位集里（它决定选择器里还没有「Default」一项）
 - electron-discovery.spec.ts
 - electron-reason-code.spec.ts
 - host-heartbeat.spec.ts
@@ -27,7 +28,8 @@
 - probe-service.spec.ts
 - probe-store.spec.ts
 - probe.spec.ts
-- reasoning-merge.spec.ts
+- reasoning-merge.spec.ts —— 过真 seam 的合并判据（声明 vs 观测），以及选择器默认档位的两处上报
+  （`resolveModelInfo` 与 `resolveCallConfig` 必须给出同一个值）
 - redlines.spec.ts —— 红线总集：平台契约（槽的 kind / 设置命名空间）、插件页样式档位（字号 / 行高 / 描边 / token）、文档里的宿主版本提示
 - shim.spec.ts
 - status-document.spec.ts —— 状态文档形状守卫的两侧：读者能处理的要放行，会在渲染期抛错的要拒绝

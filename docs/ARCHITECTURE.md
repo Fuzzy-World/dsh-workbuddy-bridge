@@ -162,6 +162,18 @@ src/
 
 探测本身仍是观察、不是能力声明：结果一律称 "verified accepted"，从不称 "verified effective"——接受只证明上游没拒绝该拼写，不证明它改变了模型行为。
 
+### 默认档位：让选择器不再出现「Default」
+
+宿主的模型选择器在**模型没报默认档位时**补一项「Default」（含义是"跟随上游"），报了就换成那一档的勾选。所以「让下拉里没有 Default」在本仓的实现就是**每个能切档位的模型都报一个默认档位**，判据由 `src/probe/efforts.ts` 的 `resolveDefaultEffort()` 给出：
+
+1. **上游声明优先**：`reasoning.defaultEffort` 在档位集里就用它——上游自己就是这么做的。
+2. **`high` 兜底**：声明了档位集却没声明默认档位、或声明的默认档位已不在收窄后的集合里（`defaultEffort: 'low'` 配 `supportedEfforts: ['high']`），一律取 `high`。
+3. **集合里没有 `high`** 则取集合首项——**默认档位必须是集合成员**，否则每个省略档位的请求都会 `UNSUPPORTED_REASONING_EFFORT` 失败。
+
+选 `high` 兜底而不是"让 Default 留着"是明确取舍：一个不中意的档位在选择器里一键可改，而「跟随上游」是不可见、也无法预知的。**没有档位的模型不报默认**（`undefined`），那种模型选择器里仍然只有 Default——它本来也没有别的档位可选。
+
+两处上报，缺一不可：选择器读 `resolveModel()`，请求路径读 `prepareCall()`，只在一边报就会出现「选择器显示某档、实际请求发的是另一档」。
+
 ## 兼容性契约（改动前必读）
 
 以下行为不是实现细节，改动它们等于丢弃用户磁盘上的数据：
@@ -170,6 +182,7 @@ src/
 - **`canDisableThinking` 的缺省不对称**：行内没有 `reasoning` 块时缺省 `true`（这种行 adapter 根本不会发 effort，值无关紧要）；**有**块但没写这个字段时严格 `=== true`（这类是会在 wire 上拒绝 `off` 的老模型）。不要"统一"成一边。
 - **上游解析的严格性**（`src/protocol/client.ts`）：字段一律 `typeof` 收窄，不用 schema 校验库替代——schemastery 会把 `'120'` 强转成 `120`、给缺失的可选子对象补 `{}`，两类静默转换分别破坏"usage 字段非数字要报错"和"reasoning 块缺省"两条已测行为。
 - **探测记录的账号归属**：每条观测绑定产生它的账号，切换账号后旧账号的观测不消失（留在盘上）但不再被读出。
+- **默认档位必须是档位集成员**（`resolveDefaultEffort`，`src/probe/efforts.ts`）：报一个档位集之外的档位，会让每个省略档位的请求以 `UNSUPPORTED_REASONING_EFFORT` 失败——判据的"集合内兜底"（声明优先 → `high` → 集合首项）不是实现细节，是用户可感知行为的契约。
 
 ## 测试
 

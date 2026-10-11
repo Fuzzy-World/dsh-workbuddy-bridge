@@ -105,6 +105,69 @@ async function effortsFor(ctx: Context, modelId: string): Promise<string[] | und
   return resolved.reasoning?.efforts.map((effort) => effort.id).sort()
 }
 
+describe('the default level the picker shows', () => {
+  /**
+   * `defaultEffort` is what removes the host picker's "Default" item, so it is
+   * the difference between the user reading a level name and reading "Default".
+   *
+   * Asserted through the real seam on purpose. The adapter has to answer this
+   * on two different calls — `resolveModelInfo` feeds the picker, and the
+   * request path resolves its own copy through `prepareCall` — and a default
+   * present on only one of them is a picker that shows a level the wire never
+   * sends. Only an end-to-end read proves both, so this checks both.
+   */
+  async function defaultFor(ctx: Context, modelId: string): Promise<string | undefined> {
+    const viaPicker = (await ctx.llm.resolveModelInfo('workbuddy', modelId)).reasoning
+      ?.defaultEffort
+    const config = await ctx.llm.resolveCallConfig({ provider: 'workbuddy', model: modelId })
+    // The request path materializes the default into the config; that is the
+    // value an omitted effort actually sends.
+    expect(config.reasoningEffort).toBe(viaPicker)
+    return viaPicker
+  }
+
+  it("reports each model's upstream default, so the picker has no `Default` item", async () => {
+    const ctx = await boot({})
+    // These are the fallback rows that declare both a set and a default. The
+    // live upstream is what the user sees, but the fallback table is what this
+    // offline case can pin, and both go through the same code path.
+    expect(await defaultFor(ctx, 'glm-5.3-flash')).toBe('high')
+    expect(await defaultFor(ctx, 'kimi-k2.8-preview')).toBe('high')
+    expect(await defaultFor(ctx, 'hy4-preview')).toBe('high')
+    // An undeclared, unobserved row has no switch at all, so there is nothing
+    // to pin and the picker legitimately still offers `Default`.
+    expect(await defaultFor(ctx, 'hy3')).toBeUndefined()
+    void ctx.fiber.dispose()
+  })
+
+  it('reports one default per model, not one per provider', async () => {
+    // The two rows below declare *different* upstream defaults, which is the
+    // point: the answer is per model. A route-wide default could not tell them
+    // apart, and this is the failure mode a single-route field would hide.
+    const ctx = await boot({})
+    // `glm-5.3-flash` declares high; `deepseek-v4-pro` in the fallback table
+    // declares no set, so it exposes no switch to default at all.
+    expect(await defaultFor(ctx, 'glm-5.3-flash')).toBe('high')
+    expect(await defaultFor(ctx, 'deepseek-v4-pro')).toBeUndefined()
+    void ctx.fiber.dispose()
+  })
+
+  it('never drifts from the offered set', async () => {
+    // A default the wire accepts must always be one the model offers. Checked
+    // across the whole fallback roster rather than one fixture, because this is
+    // an invariant over every proposed set rather than a fact about one row.
+    const ctx = await boot({})
+    for (const info of WorkBuddy.FALLBACK_WORKBUDDY_MODELS) {
+      const resolved = await ctx.llm.resolveModelInfo('workbuddy', info.id)
+      const effort = resolved.reasoning?.defaultEffort
+      if (effort === undefined) continue
+      const offered = resolved.reasoning?.efforts.map((level) => level.id) ?? []
+      expect(offered).toContain(effort)
+    }
+    void ctx.fiber.dispose()
+  })
+})
+
 describe('probe results merged into the provider', () => {
   it('leaves an undeclared model without a control when nothing was observed', async () => {
     const ctx = await boot({})

@@ -27,6 +27,12 @@
  * `canDisableThinking: true` alongside a declared set. It is never probed:
  * disabling thinking cannot be inferred from a row's shape.
  *
+ * A second, smaller judgement lives here too: {@link resolveDefaultEffort},
+ * which names the one level a switchable model should *default* to. It stays
+ * beside {@link resolveEfforts} because it is a function of the offered set —
+ * the default must be a member of it — and splitting the two across modules is
+ * how the offered set and its default come to disagree.
+ *
  * @module dsh-workbuddy-bridge/probe/efforts
  */
 
@@ -106,4 +112,41 @@ export function resolveEfforts(
     return { efforts: observed.efforts, source: 'observed', detectable: true, canDisable: false }
   }
   return { efforts: [], source: 'none', detectable: true, canDisable: false }
+}
+
+/**
+ * The level a switchable model defaults to, or undefined when it has no switch.
+ *
+ * **Why this is not simply the upstream's `defaultEffort`.** The host's model
+ * picker adds a "Default" item — "follow whatever the provider does" — exactly
+ * when a model reports no default; reporting one is what removes that item. The
+ * upstream's own answer is used whenever it names a level the offered set
+ * contains, because that is the only defensible source: it is what the provider
+ * itself would do with no `reasoning_effort` on the wire.
+ *
+ * `high` backs it up otherwise, and the asymmetry is deliberate. A row can
+ * declare a set while naming no default, and a stale `defaultEffort` can name a
+ * level a narrower declared set no longer offers (`defaultEffort: 'low'` beside
+ * `supportedEfforts: ['high']`). Both leave the level unpinned, and the chosen
+ * behaviour is to pin it anyway: a wrong-but-explicit level is a one-click fix
+ * in the picker, while a silent "follow the provider" is not even visible.
+ *
+ * The fallback therefore never strays outside the offered set. A model whose set
+ * excludes `high` falls back to its first offered level — naming a level the
+ * model cannot accept would make every request that omits an effort fail
+ * `UNSUPPORTED_REASONING_EFFORT`, which is the failure the `reasoning-merge`
+ * specs exist to prevent.
+ *
+ * @param info - the catalog row, whose `reasoning.defaultEffort` may name one.
+ * @param offered - the offered levels, in order; the answer is always a member.
+ * @returns a member of `offered`, or undefined when nothing is offered.
+ */
+export function resolveDefaultEffort(
+  info: WorkBuddyModelInfo,
+  offered: readonly WorkBuddyEffort[],
+): WorkBuddyEffort | undefined {
+  if (offered.length === 0) return undefined
+  const declared = info.reasoning?.defaultEffort
+  if (declared !== undefined && offered.includes(declared)) return declared
+  return offered.includes('high') ? 'high' : offered[0]
 }

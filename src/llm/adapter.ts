@@ -17,15 +17,15 @@ import type {
   ThinkingLevelMap,
 } from '@earendil-works/pi-ai'
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
-import { resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
-import type { LlmModelInfo, LlmResolvedModelInfo } from '@deepseek-ai/dsh-llm'
+import { ReasoningEffortId, resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
+import type { LlmModelInfo, LlmResolvedModelInfo, PreparedAdapterCall } from '@deepseek-ai/dsh-llm'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { ResolvedPiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { WorkBuddyCredentialStore } from '../credential/store.ts'
 import type { WorkBuddyCatalog, WorkBuddyModelInfo } from '../catalog/index.ts'
 import type { WorkBuddyProbeRecord } from '../probe/store.ts'
-import { resolveEfforts } from '../probe/efforts.ts'
+import { resolveDefaultEffort, resolveEfforts } from '../probe/efforts.ts'
 import type { WorkBuddyShim } from '../llm/shim.ts'
 import { normalizeCredits } from '../protocol/client.ts'
 
@@ -287,16 +287,21 @@ export function createWorkBuddyAdapter(options: WorkBuddyAdapterOptions): WorkBu
 
   let profiles = new Map<string, ResolvedPiAiProviderProfile>([[providerId, profile]])
 
-  const adapter = new WorkBuddyPiAiAdapter(catalog, hidden ?? (() => []), {
-    profiles: () => profiles,
-    auth: INERT_AUTH,
-    // Resolve the shim's per-process shared secret as the OpenAI apiKey so
-    // pi-ai sends it as `Authorization: Bearer <shared-secret>`. The shim
-    // validates this before forwarding and resolves the real WorkBuddy token
-    // itself via the store, so the secret never reaches upstream.
-    resolveApiKey: async () => shim.token(),
-    ...(resolveAttachments === undefined ? {} : { resolveAttachments }),
-  })
+  const adapter = new WorkBuddyPiAiAdapter(
+    catalog,
+    hidden ?? (() => []),
+    observe ?? (() => undefined),
+    {
+      profiles: () => profiles,
+      auth: INERT_AUTH,
+      // Resolve the shim's per-process shared secret as the OpenAI apiKey so
+      // pi-ai sends it as `Authorization: Bearer <shared-secret>`. The shim
+      // validates this before forwarding and resolves the real WorkBuddy token
+      // itself via the store, so the secret never reaches upstream.
+      resolveApiKey: async () => shim.token(),
+      ...(resolveAttachments === undefined ? {} : { resolveAttachments }),
+    },
+  )
 
   return {
     adapter,
@@ -317,6 +322,14 @@ export function createWorkBuddyAdapter(options: WorkBuddyAdapterOptions): WorkBu
  * capability resolution, and effort mapping stay exactly as `dsh-llm-pi-ai`
  * implements them.
  *
+ * `resolveModel()` and `prepareCall()` additionally answer the *default*
+ * thinking level. `dsh-llm-pi-ai` can only report a default from a whole-route
+ * profile field (`profile.reasoning`), which cannot express one level per
+ * model, so the per-model answer has to be attached here. Two call sites are
+ * required rather than one: the picker reads `resolveModel()`, while the
+ * request path reads `prepareCall()`, and a default present on only one of them
+ * would show the user a level the wire does not actually send.
+ *
  * A model missing from the catalog (an id the shim would serve but the last
  * upstream refresh did not list) falls through with its name untouched rather
  * than being dropped: catalog membership is advisory, and the seam tolerates
@@ -326,6 +339,7 @@ class WorkBuddyPiAiAdapter extends PiAiAdapter {
   constructor(
     private readonly catalog: WorkBuddyCatalog,
     private readonly hidden: () => readonly string[],
+    private readonly observe: (modelId: string) => WorkBuddyProbeRecord | undefined,
     options: ConstructorParameters<typeof PiAiAdapter>[0],
   ) {
     super(options)
@@ -334,6 +348,34 @@ class WorkBuddyPiAiAdapter extends PiAiAdapter {
   /** Catalog entry for one model id, or undefined when the catalog omits it. */
   private infoFor(model: string): WorkBuddyModelInfo | undefined {
     return this.catalog.current().find((entry) => entry.id === model)
+  }
+
+  /**
+   * The default level for one model, or undefined when it has no switch.
+   *
+   * Derived from the *same* switch the picker is built from — `resolveEfforts`
+   * with the same observation the adapter passes to `reasoningFields` — so the
+   * default can never name a level this model does not offer.
+   */
+  private defaultEffortFor(model: string): ReasoningEffortId | undefined {
+    const info = this.infoFor(model)
+    if (info === undefined) return undefined
+    const resolved = resolveEfforts(info, this.observe(model))
+    const effort = resolveDefaultEffort(info, resolved.efforts)
+    return effort === undefined ? undefined : ReasoningEffortId(effort)
+  }
+
+  /**
+   * Attach the per-model default to an already-resolved model answer.
+   *
+   * Written as a rewrite of `reasoning` rather than a spread of the whole
+   * answer: `reasoning.defaultEffort` must stay absent — not `undefined` — on a
+   * model with no switch, because the host reads absence as "offer Default".
+   */
+  private withDefaultEffort(resolved: LlmResolvedModelInfo): LlmResolvedModelInfo {
+    const effort = this.defaultEffortFor(resolved.id)
+    if (effort === undefined || resolved.reasoning === undefined) return resolved
+    return { ...resolved, reasoning: { ...resolved.reasoning, defaultEffort: effort } }
   }
 
   override async listModels(provider: string): Promise<readonly LlmModelInfo[]> {
@@ -359,7 +401,17 @@ class WorkBuddyPiAiAdapter extends PiAiAdapter {
   ): Promise<LlmResolvedModelInfo> {
     const resolved = await super.resolveModel(provider, model, signal)
     const info = this.infoFor(model)
-    if (info === undefined) return resolved
-    return { ...resolved, name: withCatalogDisplay(resolved.name, info) }
+    const named =
+      info === undefined ? resolved : { ...resolved, name: withCatalogDisplay(resolved.name, info) }
+    return this.withDefaultEffort(named)
+  }
+
+  override async prepareCall(
+    provider: string,
+    model: string,
+    signal?: AbortSignal,
+  ): Promise<PreparedAdapterCall> {
+    const prepared = await super.prepareCall(provider, model, signal)
+    return { ...prepared, model: this.withDefaultEffort(prepared.model) }
   }
 }
