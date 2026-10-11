@@ -61,10 +61,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zlZayn/dsh-workbuddy-bridge.git"
+    "url": "git+https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge.git"
   },
-  "homepage": "https://github.com/zlZayn/dsh-workbuddy-bridge#readme",
-  "bugs": "https://github.com/zlZayn/dsh-workbuddy-bridge/issues",
+  "homepage": "https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge#readme",
+  "bugs": "https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge/issues",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
