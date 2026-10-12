@@ -32,6 +32,14 @@
 # （hoisted 的理由见 ci.yml），并且 swap 脚本内部用 `pnpm install --no-frozen-lockfile` ——
 # 后者不能省：swap 先删锁文件，而 pnpm 在 CI 下默认按 frozen 处理，不加就是「换线必红」。
 #
+# ## 两条腿都要把声明收窄成单族
+#
+# 声明面是若干族的并集，而**安装器不一定选最高的那族**：`latest` 指向的版本若能满足区间，
+# 它就用 `latest`（2026-10-12 实测，npm 与 pnpm 行为一致，`semver.maxSatisfying` 并不适用）。
+# 于是「换到 next 线」在不收窄时会装出**混合树**，`verify` 的红来自解析规则、不是宿主不兼容。
+# 所以两条腿都传 `--only <族前缀>`：收窄之后这个作业才在验「目标族可装可跑」。
+# 经过见 .agents/notes/2026-10-12-installer-picks-latest-family.md。
+#
 # 与 contract 之类的定时任务错开小时，避免同一分钟抢 runner。
 name: compat
 
@@ -80,8 +88,11 @@ jobs:
       matrix:
         include:
           # 承诺线（RC 族）：红了必须修。
+          # **这条腿也必须收窄**（2026-10-12 实测）：并集区间下，安装器会在 `latest` 指向的
+          # 版本能满足区间时优先用它 —— 不收窄就装出**混合树**（20 个高族 + 1 个低族），
+          # `verify` 报的「假绿」来自这个，而不是宿主不兼容。经过见 .agents/notes/2026-10-12-installer-picks-latest-family.md。
           - line: next
-            only: ''
+            only: '--only 0.2.0'
             blocking: true
           # 声明面承诺的第二族（旧 RC 族）：声明面承诺了它，所以它红了要看得见；
           # 但它不是承诺线，所以只记录、不阻断 run。
