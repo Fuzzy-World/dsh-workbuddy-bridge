@@ -9,10 +9,13 @@
   <p><em>WorkBuddy desktop models in DeepSeek Harness</em></p>
 
   <p>
-    <a href="https://www.npmjs.com/package/dsh-workbuddy-bridge"><img src="https://img.shields.io/npm/v/dsh-workbuddy-bridge?style=flat" alt="npm"></a>
+    <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat&logo=deepseek&logoColor=white" alt="由 dsh 驱动"></a>
+  </p>
+
+  <p>
     <a href="https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge/actions/workflows/ci.yml"><img src="https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-    <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DeepSeek%20Harness-Plugin-4176E6?style=flat" alt="DeepSeek Harness Plugin"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT 许可证"></a>
+    <a href="https://www.npmjs.com/package/dsh-workbuddy-bridge"><img src="https://img.shields.io/npm/v/dsh-workbuddy-bridge?style=flat" alt="npm"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat" alt="MIT 许可证"></a>
   </p>
 
   <p>
