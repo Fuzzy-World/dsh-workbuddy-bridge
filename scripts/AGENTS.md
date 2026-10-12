@@ -5,6 +5,10 @@
 scripts/ 特有约束：
 
 - 改动前后跑与本目录相关的 spec，路由见 [README.md](README.md)
+- **`compat-swap.mjs` 会改写工作树**：它改 `package.json` 的声明区间、删锁文件与 `node_modules` 再重装。
+  跑它之前**先提交或 stash**（回滚就是 `git checkout package.json pnpm-lock.yaml`），
+  也别在脏工作区里跑 —— 跑完分不清哪些改动是自己的。
+  同理 `report-compat-failure.mjs` 会调 `gh` 写 issue，本地试跑一律加 `--dry-run`。
 - **真机脚本的输出只到控制台，不落盘**（2026-10-03 起）。
   控制台输出是「跑过什么」的记录；落盘会把它变成一份没人管、也不知道该不该删的副本。
   需要临时文件时用 `mkdtemp(tmpdir())`，并在 `finally` 里 `rm` —— 见

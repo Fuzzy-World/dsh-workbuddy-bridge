@@ -2,15 +2,28 @@
 
 职责：见 [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 
-四个脚本都是**真机 / 一次性**工具，不在离线套件里。三条进 [docs/PUBLISHING.md](../docs/PUBLISHING.md) 的「发版前确认」，
-它们验的是托管 runner 上验不了的那一段。
+脚本分两类：**离线**的（CI 或发布门禁里跑）与**真机 / 一次性**的（托管 runner 上验不了的那一段）。
+
+## 离线
+
+| 脚本 | 做什么 | 何时跑 | 前提 |
+|---|---|---|---|
+| `check-release.mjs` | 发布态不变量：bundle patch、`files` 覆盖、宿主兼容范围与 peer 下限自洽、locale 键集、`NOTICE` | `pnpm run check:release`；发布流程 publish 前；CI 的 verify 步 | —— |
+| `release-guard.mjs` | 判一次推送改没改产物，决定走不走发布 | 发布流程内 | stdin 收路径清单 |
+| `check-declaration.mjs` | 只读 `package.json` 的声明区间 + 问 npm：声明的范围还罩不罩得住被跟的那条线 | [compat.yml](../.github/workflows/compat.yml) 的 declaration 作业（每周） | 能访问 registry |
+| `compat-swap.mjs` | 把声明面换到某条线 / 某个版本前缀族，清锁清树重装，再回验实装版本 | compat.yml 的 swap 作业；本地复现巡检 | **会改写 `package.json`**（见 [AGENTS.md](AGENTS.md)） |
+| `report-compat-failure.mjs` | 把巡检的红变成一条固定标题的跟踪 issue，同一处失败不重复刷 | compat.yml 的失败步骤 | `gh` 可用且有 `issues: write` |
+| `verify-shim-hardening.mjs` | loopback shim 的加固面（六个原始 HTTP 请求各验一条） | 改 shim 后；CI 的 verify 步 | —— |
+
+## 真机 / 一次性
+
+这几条验的是**托管 runner 上验不了**的那一段，三条进 [docs/PUBLISHING.md](../docs/PUBLISHING.md) 的「发版前确认」。
 
 | 脚本 | 做什么 | 何时跑 | 平台 | 前提 |
 |---|---|---|---|---|
 | `live-e2e.mjs` | 适配器 → pi-ai → shim → 真实上游的端到端，并读一次余额 | 发版前；改协议 / 适配器 / shim 后 | 任意 | 先 `build`；本机已登录；会花掉少量积分 |
 | `client-identity-live-matrix.mjs` | 客户端身份矩阵（chat / tool / probe / baseline，各打各的判定） | 发版前；改 UA / 请求头 / 身份解析后 | 任意 | 先 `build`；凭据经 `WorkBuddyCredentialStore` 取（含 at-rest 解密） |
 | `issue-48-forced-fallback-e2e.mjs` | 强制 fallback 的真发现链（真 `mdfind` / `plutil` / helper spawn） | 发版前 | **仅 macOS** | 先 `build`；本机 App 在标准位置 |
-| `verify-shim-hardening.mjs` | loopback shim 的加固面（离线可跑） | 改 shim 后 | 任意 | —— |
 
 三条真机脚本的**平台前提会自己说**：跑不了的那条打 `SKIP …` 并 `exit 0`，不伪装成通过。
 `client-identity-live-matrix.mjs` 里**未登录的产品**同样按 `SKIP` 记 —— 两个产品是各自独立的安装，

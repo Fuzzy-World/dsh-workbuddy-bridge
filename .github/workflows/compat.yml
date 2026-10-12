@@ -1,0 +1,149 @@
+# 兼容性巡检：每周把 @deepseek-ai/dsh-* 换到另一条线上，看还构不构得出来。
+#
+# 为什么是每周而不是每次推送：它要重装整棵依赖树，跑一次几分钟，而宿主版本线一周也动不了几次。
+#
+# 两个作业，两件事，刻意分开：
+#   declaration —— 只读 package.json 的声明区间 + 问 npm 该线实际指向的版本，
+#                  判「我们声明的范围还罩不罩得住」。不装任何依赖，几十秒出结果。
+#   swap        —— 真的换线、真的装、真的跑测试。
+#   两者混在一起会互相遮蔽：声明面过期与代码真的跑不起来是两回事。
+#
+# 主次：**`next` 是承诺线** —— 它就是 RC 线（npm 上没有 `rc` 这个 tag，RC 版本全挂在 next 上）。
+# `engines.dsh` 与全部 peer 的区间就落在这一条线上。它红了就红、就修。
+# 第二族（旧 RC 族，有真实使用者停在那里）**没有任何 dist-tag 指向它**，所以用**版本前缀**定位，
+# 并且只记录不阻断。
+#
+# **版本号不写在这里**（会漂），要现查跑：node scripts/compat-swap.mjs check
+#
+# 「只记录」不等于「没人看」：承诺线红了会开或更新**一条固定标题的跟踪 issue**
+# （scripts/report-compat-failure.mjs，同一处失败不重复刷评论）—— 这就是「不阻断」与「失败可见」并存。
+# 定时任务的失败邮件只发给最后改过 cron 的人，不能当主通知。
+#
+# ## 为什么本 workflow **不跟 ci.yml 的三平台矩阵**
+#
+# 被测的那条轴是**宿主版本线**，不是操作系统。平台相关的断言（win32 真 reg.exe、darwin 默认路径、
+# POSIX 权限位）在 ci.yml 的矩阵里已经有覆盖，而换一条宿主线不会改变它们的结论 ——
+# 矩阵 × 两条线 = 每周 6 个 runner，换来的信号是重复的。
+# 重开条件：出现「某个平台专有的失败与宿主线相关」时再把平台加回矩阵。
+#
+# ## 与另两仓的差异只有一处：包管理器
+#
+# 本仓是 pnpm。所以安装是 `pnpm install --frozen-lockfile --config.node-linker=hoisted`
+# （hoisted 的理由见 ci.yml），并且 swap 脚本内部用 `pnpm install --no-frozen-lockfile` ——
+# 后者不能省：swap 先删锁文件，而 pnpm 在 CI 下默认按 frozen 处理，不加就是「换线必红」。
+#
+# 与 contract 之类的定时任务错开小时，避免同一分钟抢 runner。
+name: compat
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # 失败可见要开 / 更新跟踪 issue。
+  issues: write
+
+jobs:
+  # 声明面：只看 package.json 与 registry。**不装任何依赖**，所以也不挂 cache。
+  declaration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      # 判据：声明的区间必须能覆盖我们告诉用户去装的那条线（README 的「兼容与已知限制」点名的那条）。
+      - name: Check that the declaration covers the tracked line
+        run: node scripts/check-declaration.mjs
+
+      # 可见性不靠 run 红：定时任务的失败邮件只发给最后改过 cron 的人。
+      - name: Record the failure on the tracking issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/report-compat-failure.mjs \
+            --check declaration \
+            --step "Check that the declaration covers the tracked line"
+
+  swap:
+    runs-on: ubuntu-latest
+    # 整轮上限：这一步每次都要整棵重装 + 构建 + 全量测试。
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 承诺线（RC 族）：红了必须修。
+          - line: next
+            only: ''
+            blocking: true
+          # 声明面承诺的第二族（旧 RC 族）：声明面承诺了它，所以它红了要看得见；
+          # 但它不是承诺线，所以只记录、不阻断 run。
+          - line: 0.1.7-rc
+            only: '--only 0.1.7-rc'
+            blocking: false
+    name: swap (${{ matrix.line }})
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      # 先确认**起始状态**本身是好的：这样 swap 之后的红才只能归因于换线，
+      # 而不是「基线本来就坏」。
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile --config.node-linker=hoisted
+
+      # swap 内部先改写声明区间、清锁清树、再装（`pnpm install --no-frozen-lockfile`），最后跑 verify。
+      # verify 不是陪衬：装失败时 node_modules 会停在旧版本上，不回头确认实际装到了什么，
+      # 后面的测试就跑在旧依赖上、给出与事实相反的信号。
+      # 记录线红了**不阻断 run**，但换版失败同样要看得见 —— 阻断与否是「阻断 / 记录」的区别，
+      # 不是「看得见 / 看不见」的区别。
+      - name: Swap onto the ${{ matrix.line }} line and confirm what got installed
+        id: swap
+        continue-on-error: ${{ !matrix.blocking }}
+        run: node scripts/compat-swap.mjs swap --line ${{ matrix.line }} ${{ matrix.only }}
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: ${{ !matrix.blocking }}
+        run: pnpm run typecheck
+
+      # 顺序是死的：tests/version.spec.ts 断言 lib/ 产物里的版本与包一致，先跑测试必红。
+      - name: Build
+        id: build
+        continue-on-error: ${{ !matrix.blocking }}
+        run: pnpm run build
+
+      - name: Test
+        id: test
+        continue-on-error: ${{ !matrix.blocking }}
+        run: pnpm test
+
+      # 作业级 continue-on-error 免掉的是「阻断」，不是「可见」：哪条线、红在哪一步都进跟踪 issue
+      # —— 但只报**承诺线**（记录线红了不追 issue）。
+      - name: Record the failure on the tracking issue
+        if: failure() && matrix.blocking
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SWAP_OUTCOME: ${{ steps.swap.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+        run: |
+          node scripts/report-compat-failure.mjs \
+            --check swap \
+            --line "${{ matrix.line }}" \
+            --step "swap=$SWAP_OUTCOME typecheck=$TYPECHECK_OUTCOME build=$BUILD_OUTCOME test=$TEST_OUTCOME"
