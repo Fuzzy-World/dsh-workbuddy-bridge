@@ -38,6 +38,7 @@
   - 上面三步就是 `pnpm check`；CI 的 Test 步带覆盖率门槛：`pnpm exec vitest run --coverage`（阈值与 include / exclude 见 [vitest.config.ts](vitest.config.ts)）
 - `node_modules/.bin` 为空时按直接路径跑：`node node_modules/typescript/bin/tsc --noEmit`、`node node_modules/tsdown/dist/run.mjs`、`node node_modules/vitest/vitest.mjs run`
 - 链接校验：`python <maintenance-flow>/check-markdown-links.py <本仓> --fragments --refs` —— 本仓不自带脚本，用维护者 skill 目录里那份；[ci.yml](.github/workflows/ci.yml) 不跑这一条，改完文档手工跑
+- 换行校验：`git diff --check` —— 与链接校验一样本仓不带脚本、改完文档手工跑（[CONTRIBUTING.md](CONTRIBUTING.md) 里「链接校验与换行校验」指的就是这两条）
 
 ## 事实来源（只查不抄）
 
