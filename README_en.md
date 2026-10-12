@@ -16,6 +16,7 @@
     <a href="https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge/actions/workflows/ci.yml"><img src="https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://www.npmjs.com/package/dsh-workbuddy-bridge"><img src="https://img.shields.io/npm/v/dsh-workbuddy-bridge?style=flat" alt="npm"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat" alt="MIT License"></a>
+    <a href="https://www.npmjs.com/package/dsh-workbuddy-bridge"><img src="https://img.shields.io/badge/SLSA-Build%20L2-green?logo=slsa&style=flat" alt="SLSA Build L2"></a>
   </p>
 
   <p>
