@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 版本与发布状态**现查**：npm `latest` → <https://www.npmjs.com/package/dsh-workbuddy-bridge>，tag / Release → 仓库 Releases 页。
+- 版本与发布状态**现查**：npm `latest` → [npm 包页](https://www.npmjs.com/package/dsh-workbuddy-bridge)，tag / Release → 仓库 Releases 页。
   **发布走 [.github/workflows/release.yml](.github/workflows/release.yml)，两个入口**：推 tag（`git push origin v<版本>`）
   或手动 dispatch；两条进同一个 job，全有或全无（先发成功、再建 tag 与 Release）。流程与判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
   `0.1.0` 是维护者本地 `npm publish` 发的（当时 workflow 还没用上，git 侧产物缺失）；`0.2.0` 起全部由 workflow 产出。
