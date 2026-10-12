@@ -127,6 +127,16 @@ jobs:
         continue-on-error: ${{ !matrix.blocking }}
         run: node scripts/compat-swap.mjs swap --line ${{ matrix.line }} ${{ matrix.only }}
 
+      # 收窄只服务两件事：**装**与**核对装了哪族** —— 两件都在上一步做完（`verify` 是上一步的一部分）。
+      # 跑测试之前必须把清单还原成提交时的样子：收窄后下限换到了另一族，而
+      # [tests/redlines.spec.ts](../tests/redlines.spec.ts) 的「文档不抄实测值」是拿 `package.json`
+      # 的下限去活文档里找「宿主 + 下限值」，**硬断言至少命中一条** —— 文档写的是原下限，
+      # 收窄后就一条也找不到，那条红是判据错位，不是代码有问题（2026-10-12 首跑即此）。
+      # 红线判的是**仓库的声明**，不是这次临时的收窄形态。
+      - name: Restore the committed manifest
+        if: always()
+        run: git checkout -- package.json
+
       - name: Typecheck
         id: typecheck
         continue-on-error: ${{ !matrix.blocking }}
