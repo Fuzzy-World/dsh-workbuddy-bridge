@@ -61,8 +61,8 @@
 
 **每个插件版本只支持一段 DSH 核心**，不匹配的组合会让 DSH 启动失败。
 
-- **下限的唯一真源是 [package.json](../package.json)**：`engines.dsh` 与全部 `@deepseek-ai/dsh-*` 声明写同一个下限（本仓统一 `>=<下限>`，不设上限）。本文与门面都不重抄那个号。
-- **本仓只支持一条线**，不提供跨代兼容层：宿主换线时，同一次改动内抬 `engines.dsh` 与全部 `@deepseek-ai/dsh-*` 的下限，并同步 [README.md](../README.md) 的「兼容与已知限制」一节（中英两份）。
+- **声明面的唯一真源是 [package.json](../package.json)**：`engines.dsh` 与全部 `@deepseek-ai/dsh-*` 声明**逐字相同**（同一个区间串，含运算符与上限）。本文与门面都不重抄那个值。
+- **声明面按族（`||`）枚举**，覆盖哪些族以 [package.json](../package.json) 为准；宿主换线时，同一次改动内改写 `engines.dsh` 与全部 `@deepseek-ai/dsh-*`，并同步 [README.md](../README.md) 的「兼容与已知限制」一节（中英两份）。**本仓不提供跨代兼容层**。
 - 判断「声明还罩不罩得住被跟的那条线」用 `pnpm run check:release`（它比 peer 与 `engines.dsh` 的下限）。
 
 ## 本地开发装法（link:）

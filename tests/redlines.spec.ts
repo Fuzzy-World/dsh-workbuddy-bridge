@@ -485,8 +485,12 @@ interface HostVersionMention {
   line: string
 }
 
-/** 宿主下限：唯一真源是 `package.json`，所以这里读它，不写死。 */
-const HOST_FLOOR = String(pkg.engines.dsh ?? '').replace(/^>=\s*/, '')
+/** 宿主下限：唯一真源是 `package.json`，所以这里读它，不写死。并集（`||`）取第一族，运算符 `>=` / `^` / `~` 一律剥掉。 */
+const HOST_FLOOR =
+  String(pkg.engines.dsh ?? '')
+    .split('||')[0]
+    ?.trim()
+    .replace(/^(?:>=|\^|~)\s*/, '') ?? ''
 /** 文档通常只写下限的数值段（`0.1.7`），清单里却带预发布段（`0.1.7-rc.2`）。 */
 const HOST_VERSION = new RegExp(`${HOST_FLOOR.replace(/-.*$/, '').replace(/\./g, '\\.')}(?![\\d.])`)
 /** 点名宿主。大小写敏感：小写 `dsh` 出现在命令与包名里，不是主语。 */

@@ -218,9 +218,9 @@ if (pkg.icon !== undefined) {
 
 // 声明面自洽：`@deepseek-ai/dsh-*` 的下限不得低于 `engines.dsh` 的下限。
 //
-// 比的是**下限**，不是形状：本仓的 peer 目前写成 `^a || ^b` 的并集（历史遗留），
-// 而 engines 写成 `>=a`。两者形状不同这件事**登记在根 AGENTS.md 的待办里**，由维护者决定是否收成同形；
-// 这条断言只保证「不管写成哪种形状，能装出来的最低那一版都不低于 engines 的下限」——
+// 比的是**下限**，不是形状：本仓 `engines.dsh` 与全部 `@deepseek-ai/dsh-*` 声明现同形
+// （一族一 `^` 的并集），但形状由维护者定、可能变，所以这条断言只管下限 ——
+// 「不管写成哪种形状，能装出来的最低那一版都不低于 `engines.dsh` 的下限」，
 // 那才是使用者会踩到的东西。
 const floor = typeof pkg.engines?.dsh === 'string' ? pkg.engines.dsh.trim() : ''
 const floorVersion = lowerBoundOf(floor)

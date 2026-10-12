@@ -1,10 +1,10 @@
 # COMPATIBILITY — 平台支持与已知限制
 
-**层：活**（随代码走；宿主下限以 `package.json` 的 `engines.dsh` 为准）。
+**层：活**（随代码走；宿主兼容范围以 `package.json` 的 `engines.dsh` 为准）。
 
 ## 宿主版本
 
-宿主下限以 [package.json](../package.json) 的 `engines.dsh` 为准（唯一真源，此处不复制会漂的值），
+宿主兼容范围（下限与上限）以 [package.json](../package.json) 的 `engines.dsh` 为准（唯一真源，此处不复制会漂的值），
 不做跨代兼容。**devDeps 锁定的宿主版本可能与实际运行的宿主错位**——改代码前先核对，
 判据与处置见根 [AGENTS.md](../AGENTS.md) 的活跃坑。
 判定方式与判据命令见 [PUBLISHING.md](PUBLISHING.md) 的「平台契约的取真源方式」。
