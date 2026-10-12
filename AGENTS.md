@@ -168,3 +168,4 @@
 - 测试手册 → [tests/README.md](tests/README.md)；脚本 → [scripts/README.md](scripts/README.md)
 - 门面截图与重截判据 → [assets/README.md](assets/README.md) · [assets/AGENTS.md](assets/AGENTS.md)
 - 来源与双版权 → [NOTICE](NOTICE)
+- 跨仓规范 → [plugin-conventions](https://github.com/dsh-plugin-lab/.github/blob/main/docs/plugin-conventions.md)
