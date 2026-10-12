@@ -31,6 +31,7 @@
 ## 常用命令（本机实测）
 
 - 本地钩子：`pre-commit install`（每个 clone 一次；本体 `uv tool install pre-commit`）——提交前自动 `prettier --write` + `eslint --fix`（`pnpm --config.verify-deps-before-run=false exec`，不联网）；CI 只读新增 lint + format:check
+  - 装完**要重开终端**（或重载 shell 配置），`~/.local/bin` 才进 `PATH` —— 否则 `pre-commit` 命令找不到
 
 - 装依赖：`pnpm install --config.node-linker=hoisted`
 - 全量检查（**顺序固定，build 必须在 test 之前**）：`tsc --noEmit` → `tsdown`（重建 `lib/`）→ `vitest run`
@@ -38,7 +39,7 @@
   - 上面三步就是 `pnpm check`；CI 的 Test 步带覆盖率门槛：`pnpm exec vitest run --coverage`（阈值与 include / exclude 见 [vitest.config.ts](vitest.config.ts)）
 - `node_modules/.bin` 为空时按直接路径跑：`node node_modules/typescript/bin/tsc --noEmit`、`node node_modules/tsdown/dist/run.mjs`、`node node_modules/vitest/vitest.mjs run`
 - 链接校验：`python <maintenance-flow>/check-markdown-links.py <本仓> --fragments --refs` —— 本仓不自带脚本，用维护者 skill 目录里那份；[ci.yml](.github/workflows/ci.yml) 不跑这一条，改完文档手工跑
-- 换行校验：`git diff --check` —— 与链接校验一样本仓不带脚本、改完文档手工跑（[CONTRIBUTING.md](CONTRIBUTING.md) 里「链接校验与换行校验」指的就是这两条）
+- 换行校验：`git diff --check` —— 与链接校验一样本仓不带脚本、改完文档手工跑
 
 ## 事实来源（只查不抄）
 
@@ -162,7 +163,6 @@
 - 门面 → [README.md](README.md) · [README_en.md](README_en.md)
 - 规则与仪表盘 → 本文件
 - 设计、契约、发布手册与文档层说明 → [docs/README.md](docs/README.md)；兼容与限制 → [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)；命令行 → [docs/CLI.md](docs/CLI.md)
-- 贡献流程与本地钩子 → [CONTRIBUTING.md](CONTRIBUTING.md)
 - 决策记录（当时为什么这么定）→ [.agents/notes/](.agents/notes/)
 - 源码手册 → [src/README.md](src/README.md)；浏览器半边 → [src/client/README.md](src/client/README.md)
 - 测试手册 → [tests/README.md](tests/README.md)；脚本 → [scripts/README.md](scripts/README.md)

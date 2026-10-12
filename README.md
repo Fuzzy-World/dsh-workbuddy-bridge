@@ -146,4 +146,4 @@ WorkBuddy 接口不保证档位信息可靠——有的模型**接受** `reasoni
 
 ## 贡献
 
-流程与本地钩子 → [CONTRIBUTING.md](CONTRIBUTING.md)。缺陷与需求走仓库 Issues。
+缺陷与需求走仓库 Issues。

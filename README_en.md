@@ -161,4 +161,4 @@ maintainer map → [AGENTS.md](AGENTS.md).
 
 ## Contributing
 
-Process and local hooks → [CONTRIBUTING.md](CONTRIBUTING.md). Bugs and requests go to the repo Issues.
+Bugs and requests go to the repo Issues.
