@@ -10,13 +10,13 @@
 
   <p>
     <a href="https://www.npmjs.com/package/dsh-workbuddy-bridge"><img src="https://img.shields.io/npm/v/dsh-workbuddy-bridge?style=flat" alt="npm"></a>
-    <a href="https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml"><img src="https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge/actions/workflows/ci.yml"><img src="https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DeepSeek%20Harness-Plugin-4176E6?style=flat" alt="DeepSeek Harness Plugin"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT 许可证"></a>
   </p>
 
   <p>
-    各版本改动 → <a href="https://github.com/zlZayn/dsh-workbuddy-bridge/releases">Releases</a>（与 npm 版本一一对应）
+    各版本改动 → <a href="https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge/releases">Releases</a>（与 npm 版本一一对应）
   </p>
 
   <p>
@@ -79,7 +79,7 @@ Desktop 与 TUI 把 `--profile web` 换成 `desktop` / `dsh-tui`（TUI 需较新
 也可以从源码安装：
 
 ```sh
-git clone https://github.com/zlZayn/dsh-workbuddy-bridge.git
+git clone https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge.git
 cd dsh-workbuddy-bridge
 pnpm install && pnpm build
 dsh plugin --profile web add "$PWD"

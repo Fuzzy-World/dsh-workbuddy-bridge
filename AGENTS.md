@@ -56,7 +56,7 @@
   离线 shim 验证 → test（带覆盖率门槛）→ lint → format:check → check:release。
   2026-10-01 首跑三格全绿；macOS 格上 `tests/electron-discovery.spec.ts` 不再是全跳（只剩 win32 专属那两条），
   说明三条真 `plutil` + 真 `X_OK` 守卫真的执行了。跑没跑、绿不绿看
-  [CI 运行记录](https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml)，数字不抄。
+  [CI 运行记录](https://github.com/dsh-plugin-lab/dsh-workbuddy-bridge/actions/workflows/ci.yml)，数字不抄。
 - 本机（Windows）实跑：`vitest` 全绿（文件数随套件增减，现跑现看）；skip 的那些是**平台专属断言**，不是缺陷 ——
   平台矩阵就是为它们存在的：POSIX 语义那几条在 ubuntu / macOS 上真跑，打真实 `reg.exe` 的只在 Windows 上跑，
   真 `plutil` + 真 `X_OK` 的只在 macOS 上跑
