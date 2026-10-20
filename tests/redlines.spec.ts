@@ -882,3 +882,52 @@ describe('红线 6：门面图不进包，README 用相对路径引用', () => {
     expect(facadeImageOffenders('README.md', missing, shipped).length).toBeGreaterThan(0)
   })
 })
+
+/**
+ * 判据来源：组织仓 `docs/criteria.md` 的
+ * 「The four compiler switches and ESLint each own their layer」（**Must agree** 档 ——
+ * redlines per repository guard that the switches exist；**开关的值住在 `tsconfig.json`**）。
+ * 姊妹仓 `dsh-ds-balance` / `dsh-zhihu-search` / `dsh-plugin-debugging` 各有同名断言，
+ * 本仓此前**没有** —— 所以这四个开关被删掉时，没有任何东西会红。
+ *
+ * 四个开关是「类型与死代码」这一档的守卫（`strict` 不在其中：它是另一条判据
+ * 「TypeScript's strict switches」的对象，本次不动）。
+ *
+ * 本仓的 `tsconfig.json` 与 `tsconfig.client.json` 是**两份各自独立的清单**
+ * （客户端那份不 `extends` 根的 —— 姊妹仓是 extends 的，所以那边一处生效、三个 project 全覆盖）。
+ * 两份都要断言：只守根的那份，客户端半边就仍然没人看着。
+ */
+describe('类型检查开关', () => {
+  /** 去掉块注释与行注释：`tsconfig.json` 里带着说明，直接 `JSON.parse` 会抛。 */
+  function stripComments(source: string): string {
+    return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+  }
+
+  /** 这条判据要守的四个开关（与姊妹仓逐字一致）。 */
+  const FLAGS = [
+    'noUnusedLocals',
+    'noUnusedParameters',
+    'noImplicitReturns',
+    'noFallthroughCasesInSwitch',
+  ] as const
+
+  /** 读一份 tsconfig 的 `compilerOptions`。 */
+  function compilerOptionsOf(file: string): Record<string, unknown> | undefined {
+    const parsed = JSON.parse(stripComments(read(file))) as {
+      compilerOptions?: Record<string, unknown>
+    }
+    return parsed.compilerOptions
+  }
+
+  for (const file of ['tsconfig.json', 'tsconfig.client.json'] as const) {
+    it(`${file} 里四个「通用 lint 那一档」的开关都在`, () => {
+      const compilerOptions = compilerOptionsOf(file)
+      // 自检：读不到 `compilerOptions` 时下面不能恒为真地通过 ——
+      // `undefined !== true` 会当场红（缺任何一个开关同理）。这里只把报错说得更清楚。
+      expect(compilerOptions, `${file} 里读不出 compilerOptions —— 判据没跑到`).toBeDefined()
+      for (const flag of FLAGS) {
+        expect(compilerOptions?.[flag], `${file}: ${flag}`).toBe(true)
+      }
+    })
+  }
+})
