@@ -69,6 +69,10 @@
   自动生成，标题是 tag。发版记录里要写清真机脚本**跑过哪些 case**、跳过了什么 ——
   尤其别把「CN 五个 case 过了」说成「身份矩阵全过」，也别声称 macOS 自动发现已验证
   （本机是 Windows，那条链打的是 `SKIP`，判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 第 5 条）
+- [ ] **windows-leg 偶发 `EPERM`（已知 flaky，不是回归）**：`tests/catalog-lifecycle.spec.ts` 的
+  「hides the group when the credential disappears…」清理临时目录时删不掉
+  `.workbuddy-host-heartbeat.json`，子进程句柄还没释放。撞到就重跑，别当成自己的改动有问题。
+  根因在清理逻辑：应改成删除失败重试、或先等句柄释放再删目录。
 
 ## 活跃坑
 
