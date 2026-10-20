@@ -885,13 +885,14 @@ describe('红线 6：门面图不进包，README 用相对路径引用', () => {
 
 /**
  * 判据来源：组织仓 `docs/criteria.md` 的
- * 「The four compiler switches and ESLint each own their layer」（**Must agree** 档 ——
- * redlines per repository guard that the switches exist；**开关的值住在 `tsconfig.json`**）。
+ * 「**Four dead-code switches are a floor, not a preference**」（**Must agree** 档；
+ * 中文版同一行是「四个死代码开关是下限，不是偏好」）—— 那一行要求的执行体是
+ * 「各仓一条红线断言这四个都是 `true`」，组织仓的 `scripts/check-criteria.mjs` 再从外部读一遍。
  * 姊妹仓 `dsh-ds-balance` / `dsh-zhihu-search` / `dsh-plugin-debugging` 各有同名断言，
  * 本仓此前**没有** —— 所以这四个开关被删掉时，没有任何东西会红。
  *
- * 四个开关是「类型与死代码」这一档的守卫（`strict` 不在其中：它是另一条判据
- * 「TypeScript's strict switches」的对象，本次不动）。
+ * 四个开关是「类型与死代码」这一档的守卫；**下限就是这四个**，仓在上限多开什么是它自己的事。
+ * `strict` 那一族**不在本条里**：它自成一节（判据里「TypeScript's strict switches」那一行）。
  *
  * 本仓的 `tsconfig.json` 与 `tsconfig.client.json` 是**两份各自独立的清单**
  * （客户端那份不 `extends` 根的 —— 姊妹仓是 extends 的，所以那边一处生效、三个 project 全覆盖）。
