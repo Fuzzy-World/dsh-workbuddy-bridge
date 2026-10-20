@@ -70,7 +70,7 @@ jobs:
         with:
           fetch-depth: 0 # gh release create --generate-notes 需要完整历史；守卫要 diff 上个 tag..HEAD
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 11
 

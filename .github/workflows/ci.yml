@@ -40,7 +40,7 @@ jobs:
       # v7 的 action 自带 node24 运行时；v4 声明 node20，该运行时已被 GitHub 弃用。
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 11
 
