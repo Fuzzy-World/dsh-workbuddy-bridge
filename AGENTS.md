@@ -65,10 +65,12 @@
 
 ## 待办
 
-- [ ] **`v0.3.1` 的 Release notes 要人工过一眼**：workflow 用 `gh release create --generate-notes`
-  自动生成，标题是 tag。发版记录里要写清真机脚本**跑过哪些 case**、跳过了什么 ——
-  尤其别把「CN 五个 case 过了」说成「身份矩阵全过」，也别声称 macOS 自动发现已验证
-  （本机是 Windows，那条链打的是 `SKIP`，判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 第 5 条）
+- **每次发版后都要人工过一眼 Release notes**（常设规则，不是某一次的任务）：正文来自 Release Drafter 草稿，
+  草稿只机械罗列 PR 标题。两件事必须补进去才发得出去：
+  - **真机脚本跑过哪些 case、跳过了什么** —— 别把「CN 五个 case 过了」说成「身份矩阵全过」，
+    也别声称 macOS 自动发现已验证（本机是 Windows，那条链打 `SKIP`；判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 第 5 条）；
+  - **用户可感知的语义变化**要单独成段，别藏在 PR 标题里。
+  做法是 `gh release edit <tag> --notes-file <file>`（2026-10-20 发 `v0.5.1` 时即按此补写）。
 - [ ] **windows-leg 偶发 `EPERM`（已知 flaky，不是回归）**：`tests/catalog-lifecycle.spec.ts` 的
   「hides the group when the credential disappears…」清理临时目录时删不掉
   `.workbuddy-host-heartbeat.json`，子进程句柄还没释放。撞到就重跑，别当成自己的改动有问题。
