@@ -65,3 +65,23 @@
 - **红线有牙齿（实测两条反向控制）**：把 cordis 的 dev 改回 `4.0.4` → 红并点出
   `peer "^4.0.4" dev "4.0.4"`；把 `react-dom` 的 dev 改回 `^18.3.1` → 同样红 —— 证明这条断言的
   范围真的覆盖非 `@deepseek-ai/` 包，而不是「官方包相等就算过」。
+
+### 踩到的坑：本地 `pnpm install` 会自愈，只有 CI 的 frozen 模式判红
+
+第一次推送后 **CI 三平台齐红**，卡在 `pnpm install --frozen-lockfile`：
+
+```
+specifiers in the lockfile don't match specifiers in package.json
+* 1 dependencies are mismatched: react-dom (lockfile: ^18.3.1, manifest: ^18.2.0)
+```
+
+成因是上面那两条反向控制：改 `package.json` 做变异时，`pnpm exec vitest` 的
+`verify-deps-before-run` 顺手跑了一次 install，把锁文件里的 `react-dom` specifier 写回了
+`^18.3.1`；随后把 `package.json` 恢复，但**没有**再 install —— 于是清单与锁文件不一致，
+而本机 `pnpm install` 不跑冻结模式，看不出任何异常。
+
+判据与处置：改完依赖**必须**跑一次 `pnpm install --frozen-lockfile --config.node-linker=hoisted`
+（与 CI 同一条命令），它才是「清单与锁文件是否一致」的检测器。这条与
+[AGENTS.md](../../AGENTS.md) 活跃坑里「本机 `pnpm install` 不带 `--frozen-lockfile` 会静默自愈，
+只有 CI 的 frozen 模式才判红」是同一族。
+
