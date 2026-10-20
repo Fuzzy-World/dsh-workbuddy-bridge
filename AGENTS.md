@@ -169,3 +169,4 @@
 - 门面截图与重截判据 → [assets/README.md](assets/README.md) · [assets/AGENTS.md](assets/AGENTS.md)
 - 来源与双版权 → [NOTICE](NOTICE)
 - 跨仓规范 → [plugin-conventions](https://github.com/dsh-plugin-lab/.github/blob/main/docs/plugin-conventions.md)
+  （插件仓共同遵守的公约；判这条算不算缺陷见 [criteria](https://github.com/dsh-plugin-lab/.github/blob/main/docs/criteria.md)）
