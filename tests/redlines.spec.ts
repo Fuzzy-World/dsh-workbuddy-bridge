@@ -41,6 +41,31 @@ describe('依赖分层', () => {
     expect(missing).toEqual([])
   })
 
+  it('每个 peer 的版本必须与同名 dev 的版本逐字相等', () => {
+    // 组织判据「peer and dev versions must agree」的执行体。两边一旦漂开，本机装出来参与
+    // 编译与测试的版本，和声明给宿主的那一个就不是同一个 —— 类型检查于是对着另一棵树假绿。
+    // 2026-10-20 实测三处漂移（@deepseek-ai/cordis、@deepseek-ai/schemastery、react-dom），
+    // 另三个仓逐条相等而本仓不是，判据于是长期只写在散文里。
+    //
+    // **范围是全部 peer，不只 @deepseek-ai/***：`react-dom` 正是非官方包里的那一处漂移；
+    // 只查官方包会让这条判据对一半清单成立，而「一半成立」在绿的时候看不出差别。
+    //
+    // 对齐方向固定为「dev 跟 peer」：peer 是**对宿主的兼容声明**，把它收窄成精确版本会让
+    // 装到别的补丁版本的宿主静默跳过本插件（见 AGENTS.md「活跃坑 · 宿主版本可能与 devDeps
+    // 错位」：peer 冲突被 `catch` 进 `skippedBundles`，插件像没装）。
+    const peers = Object.keys(pkg.peerDependencies)
+    // 自检：peer 清单为空时下面那条断言恒为真 —— 那是「判据没跑到」，不是「判据通过」。
+    expect(peers.length).toBeGreaterThan(0)
+    const drift = peers
+      .filter((name) => pkg.devDependencies[name] !== undefined)
+      .filter((name) => pkg.devDependencies[name] !== pkg.peerDependencies[name])
+      .map(
+        (name) =>
+          `${name}: peer "${pkg.peerDependencies[name]}" dev "${pkg.devDependencies[name]}"`,
+      )
+    expect(drift).toEqual([])
+  })
+
   it('dsh 平台包的 peer 与 dev 都必须能读出一个下限', () => {
     const bounds = Object.keys(pkg.peerDependencies).filter((name) =>
       name.startsWith('@deepseek-ai/dsh'),
