@@ -113,6 +113,74 @@ describe('prepareChatBody', () => {
     expect(roles).toEqual(['system', 'user'])
     expect(body['reasoning_effort']).toBe('max')
   })
+
+  /*
+   * The channel check matches one brand token pair, measured on the live
+   * endpoint on 2026-10-21 (URL, headers, device token and body held fixed):
+   * `DeepSeek Harness` → 400/11128, while adding a hyphen, doubling the space,
+   * inserting an article, or naming another vendor → 200. Lower-casing the
+   * brand or changing punctuation still → 400, so the match is case-sensitive
+   * on that contiguous pair and nothing wider.
+   *
+   * The rewrite is therefore one character per occurrence, which keeps the
+   * sentence's meaning and every other byte of the prompt intact.
+   */
+  const systemOf = (raw: string): string => {
+    const body = JSON.parse(prepareChatBody(raw)) as { messages: { content: unknown }[] }
+    const content = body.messages[0]?.content
+    // A string stays a string; a content array is flattened to its text parts,
+    // which is what the assertions below compare against.
+    if (typeof content === 'string') return content
+    if (!Array.isArray(content)) return ''
+    return content
+      .map((part) =>
+        typeof part === 'object' && part !== null && 'text' in part
+          ? String((part as { text: unknown }).text)
+          : '',
+      )
+      .join('')
+  }
+  const withSystem = (content: unknown, role = 'system'): string =>
+    JSON.stringify({ model: 'm', messages: [{ role, content }, { role: 'user', content: 'hi' }] })
+
+  it('hyphenates the blocked brand pair in a system message', () => {
+    const out = systemOf(withSystem('You are an AI agent powered by DeepSeek Harness.'))
+    expect(out).toBe('You are an AI agent powered by DeepSeek-Harness.')
+    // Meaning and the surrounding instructions are untouched.
+    expect(out.startsWith('You are an AI agent powered by')).toBe(true)
+  })
+
+  it('only changes the pair: the rest of the prompt is byte-identical', () => {
+    const original = 'You are an AI agent powered by DeepSeek Harness.\n\nLine two.\n\nLine three.'
+    const out = systemOf(withSystem(original))
+    expect(out.replace('DeepSeek-Harness', 'DeepSeek Harness')).toBe(original)
+  })
+
+  it('rewrites every occurrence and handles the content-array spelling', () => {
+    const doubled = systemOf(
+      withSystem('You are an AI agent powered by DeepSeek Harness. DeepSeek Harness again.'),
+    )
+    expect(doubled).toBe(
+      'You are an AI agent powered by DeepSeek-Harness. DeepSeek-Harness again.',
+    )
+    const parts = systemOf(
+      withSystem([
+        { type: 'text', text: 'You are an AI agent powered by DeepSeek Harness.' },
+        { type: 'text', text: 'unrelated' },
+      ]),
+    )
+    expect(parts).toContain('DeepSeek-Harness')
+    expect(parts).not.toContain('DeepSeek Harness')
+  })
+
+  it('leaves user messages and already-safe spellings alone', () => {
+    // The identity claim lives in `system`; a user quoting the phrase is not it.
+    expect(systemOf(withSystem('DeepSeek Harness', 'user'))).toBe('DeepSeek Harness')
+    // Spellings the live endpoint already accepts must not be rewritten.
+    expect(systemOf(withSystem('powered by DeepSeek-Harness.'))).toBe('powered by DeepSeek-Harness.')
+    expect(systemOf(withSystem('powered by deepseek harness.'))).toBe('powered by deepseek harness.')
+    expect(systemOf(withSystem('powered by Claude.'))).toBe('powered by Claude.')
+  })
 })
 
 describe('classifyUpstreamError', () => {

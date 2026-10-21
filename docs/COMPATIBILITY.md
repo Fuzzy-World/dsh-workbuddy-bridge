@@ -23,6 +23,15 @@
 （`cnAppDiscovery()`，宿主与 CLI 共用一处），默认路径也按策略取 —— 两者混用会让一条策略
 报出另一条平台的路径。判据见根 [AGENTS.md](../AGENTS.md) 的活跃坑。
 
+## 客户端身份版本（按平台）
+
+| 平台 | 版本发现 |
+|---|---|
+| macOS | 读 `.app` 的 `Info.plist`（`CFBundleShortVersionString`） |
+| Windows | 读安装目录的 `resources/install-manifest.json`，默认路径之外再用卸载表注册表兜底 |
+
+版本发现此前只有 macOS 一条链，win32 一律走编译期 fallback，UA 因此陈旧且缺 `CLI/…` 段；现在两平台共用 `workbuddy-install.ts` 的发现。读不到安装版时按「分区缓存 → 编译期常量」降级，CLI 版本缺失时 UA 省略 `CLI/…` 段，都不阻塞发消息。
+
 ## 模型目录来源
 
 - **国内版**：走官方 CLI 同款接口。
@@ -30,6 +39,9 @@
 
 ## 已知缺口
 
+- **设备令牌依赖已安装并登录的 WorkBuddy 桌面 App 及其原生 Turing SDK**：App 未安装、未登录，或原生模块在当前运行时不可加载时，
+  `X-Device-Token` 被省略 —— 请求仍会发出，但可能仍被上游的渠道校验拒绝（`400` / `11128`）。
+  这条降级不阻塞发消息，也不影响 refresh / catalog / billing。
 - **无凭据时该版模型分组不再显示** —— 插件不展示一份选了必然报错的兜底列表。
 - **企业账号积分目前仅覆盖国内版**。
 - **TUI 无手动检测**（界面能力，非平台缺口）。

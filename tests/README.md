@@ -14,11 +14,13 @@
 - css-modules.spec.ts —— CSS module 的类名引用必须能解析：`css.x` 不受类型检查，写错就是**静默无样式**
 - desktop-credential-protection.spec.ts
 - desktop-doctor.spec.ts
+- device-token.spec.ts —— 设备令牌提供器的离线契约：configure 进程内一次性、TTL 复用、并发去重、失败一律 `undefined`、token 不进日志
 - dual-routes.spec.ts
 - efforts.spec.ts —— `resolveEfforts()` 的判据表，含 adapter 与状态文档逐例一致（两半体不能各答一套）；
   另含 `resolveDefaultEffort()`：默认档位永远落在档位集里（它决定选择器里还没有「Default」一项）
 - electron-discovery.spec.ts
 - electron-reason-code.spec.ts
+- gateway-headers.spec.ts —— 官方网关身份头的离线契约：物化整套头、每请求 id 的 UUIDv7 形态、header-safe（坏值整条丢弃）、永不抛、refresh token 不出现
 - host-heartbeat.spec.ts
 - locales.spec.ts —— 词条键必须有人读：删掉一个 UI 元素时它的词条会**静默留下**（键集是闭合联合，只挡住反向错误）
 - loopback.spec.ts
@@ -37,6 +39,7 @@
 - variants.spec.ts
 - version.spec.ts
 - web-status.spec.ts
+- workbuddy-install.spec.ts —— 安装根发现（Windows 默认路径 + 卸载表注册表兜底、macOS `.app`）与版本 / CLI / Turing 模块路径 / channelId 的读取
 - 子目录：browser —— **真实 React 树**的浏览器半边用例（卡片渲染契约、composer 控件、配置控制器）。折叠头的展开走 [browser/README.md](browser/README.md) 的 `expandDisclosure`，不是找第一个按钮
 
 变更影响路由：改本目录 → 同步根 [AGENTS.md](../AGENTS.md) 的待办与活跃坑；设计变化写 [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)

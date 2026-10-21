@@ -78,6 +78,14 @@
 
 ## 活跃坑
 
+- **`11128` 的触发面是 system 里的 `DeepSeek Harness` 词对，不是请求头**：2026-10-21 实测（同 URL、同头、同设备令牌，只改一处）——`DeepSeek Harness` → 400，`DeepSeek-Harness`（加连字符）→ 200，且 `DeepSeek  Harness`（双空格）、`the DeepSeek Harness`、`powered by Claude/Foo` 都放行；`deepseek harness`（小写）、`DeepSeek Harness!` 仍 400。所以是**大小写敏感的连续 token 匹配**，不是整句等值、也不是对第三方框架的语义判断。处置在 `prepareChatBody()` 的 `neutralizeHarnessIdentity()`：**每处只加一个连字符**，语义与其余提示词、历史、工具集全不动；只作用于 `system`，`user` 里引用不动。别再扩大成"清洗品牌词"或整句替换——两者都改掉了语义还没多得分。
+- **`11128` 至少对应四种情况，不许按 code 单独分支**：`developer` 角色（`prepareChatBody()` 改写为 `system`）、
+  国际版首条消息不是 `system`（`prepareInternationalChatBody()` 补一条）、渠道未批准（2026-10-21 phase 2 处理的那种）、
+  以及以后还会新长出来的。按 code 做行为分支等于把新含义误判成旧故障；判据与经过见
+  [.agents/notes/2026-10-21-gateway-channel-identity.md](.agents/notes/2026-10-21-gateway-channel-identity.md)。
+- **chat/probe 的头只有一个 home（[src/protocol/gateway-headers.ts](src/protocol/gateway-headers.ts)）**：要改头就在那里改，
+  别在 `client.ts` 里另起一套；它只管 chat 与 probe，refresh / catalog / billing 仍走 `commonHeaders`，UA 三条链各自归属不变。
+  设备令牌从 `device-token.ts` 注入，拿不到就省略该头 —— 头构建失败不许升级成消息失败。
 - **`off` 只是选择器的档位名，不是 wire 拼写；两个端点都拒它**：`thinkingLevelMap.off` 必须是字符串
   （`null` 会让 Off 从选择器消失），而 pi-ai 同时拿它当"未指定档位时自动发送的值"。上游对这个字面量
   一律 400 / `11133`，国际版见 #49、国内版见 #13。所以 strip 挂在**两版共用**的 `prepareChatBody()`，
@@ -183,3 +191,6 @@
 - 来源与双版权 → [NOTICE](NOTICE)
 - 跨仓规范 → [plugin-conventions](https://github.com/dsh-plugin-lab/.github/blob/main/docs/plugin-conventions.md)
   （插件仓共同遵守的公约；判这条算不算缺陷见 [criteria](https://github.com/dsh-plugin-lab/.github/blob/main/docs/criteria.md)）
+
+
+

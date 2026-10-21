@@ -193,6 +193,32 @@ src/
 - **`off` 不进探测候选**（`PROBE_EFFORT_CANDIDATES`）：探测只能证明"上游收下这个拼写"，证明不了"思考被关掉了"，而"接受 ≠ 生效"是本仓探测系统的第一条原则。
 - **不要按模型写死映射**：同一个拼写在三家供应商后面有三种现实，静态快照必过期（判据与先例见[归档记录](archive/reasoning-effort-off-wire-issue-49-2026-09-23.md)与[决策记录](../.agents/notes/2026-10-20-off-effort-strip-both-regions.md)）。
 
+## 渠道身份（phase 2）：网关头与设备令牌
+
+上游 `POST /v2/chat/completions` 对非官方客户端回 `400 {"code":11128,"msg":"Illegal API invocation from an unapproved channel"}`。身份对齐因此分两阶段落地：**phase 1 只改 User-Agent**（`client-identity.ts`），把爆炸半径收在一个变量上，让真机矩阵一次只回答一个问题；**phase 2 补齐其余网关头**（`gateway-headers.ts`），范围仍只有 chat 与同源的 probe。两阶段共用同一条范围契约：refresh / catalog / billing 沿用原头，UA 的三条链各自归属不变——`CLIENT_UA`（refresh、CN 目录、促销）、`chatUserAgent`（chat + probe）、`appUserAgent`（国际目录）。
+
+官方桌面客户端的形状（`gateway-headers.ts` 是唯一构建处；逐头参考集以 `scripts/gateway-parity.mjs` 为准）：
+
+| 组 | 头 | 说明 |
+|---|---|---|
+| 常量身份 | `X-IDE-Type` / `X-IDE-Name` / `X-IDE-Version`、`x-codebuddy-request: 1`、`X-Private-Data: true`、`X-Agent-Intent` / `X-Agent-Purpose` / `X-Agent-Type`、`X-Product: SaaS`、`X-Requested-With` | `X-IDE-Version` 就是解析出的 App 版本 |
+| 账号维度 | `X-User-Id` / `X-No-User-Id: 1`、`X-Domain` / `X-No-Department-Info: 1`、`X-Enterprise-Id` | 缺值走 `X-No-*`；企业租户才发 `X-Enterprise-Id`，个人账号整对省略（官方既不发 `X-Enterprise-Id` 也不发 `X-No-Enterprise-Id`） |
+| 每请求随机 | `X-Conversation-Request-Id`、`X-Conversation-Message-Id`、`X-Request-Id`、`X-Root-Request-Id`、`acp-connection-id`（UUIDv7，时间有序）；trace 族 `traceparent` / `b3` / `X-B3-*` / `X-Trace-Id` | 每次构建重新生成；`X-Conversation-Id` 是客户端实例级的 UUIDv4 |
+| 设备 | `X-Device-Token: v3:…` | 由已安装 App 自带的原生 Turing SDK 在**本进程内存**里现算（recon 实测约 110 ms、每次不同），不要求 App 正在运行，不落盘 |
+| 浏览器味 | 无 `Origin` / `Referer`，`Accept: application/json` | 官方客户端不发 CORS 头；插件原先那两个头指向另一个产品（`www.codebuddy.cn`）的域名 |
+
+设备令牌的两个输入都由 `workbuddy-install.ts` 发现：SDK 模块路径（`resources/app.asar.unpacked/native/turing-sdk/index.cjs`，macOS 在 `Contents/Resources` 下）与渠道 id（`~/.workbuddy/cache/acc-product-config-v3.json` 的 `config.turingSdk.channelId`，读不到才回落国内版常量）。`device-token.ts` 以 5 分钟 TTL 缓存（对齐 App 自己的后台刷新节奏），并发共用一次 in-flight，失败一律 `undefined`。
+
+三条不变量，由 [gateway-headers.spec.ts](../tests/gateway-headers.spec.ts)、[device-token.spec.ts](../tests/device-token.spec.ts)、[chat-identity-wire.spec.ts](../tests/chat-identity-wire.spec.ts) 钉住：
+
+- **chat 不带 refresh token**。refresh token 只去 `/v2/plugin/auth/token/refresh`；`Authorization` 由调用方补，构建器既不代劳，也不允许别的秘密进入头集。
+- **值必须 header-safe**。不合法的值**整条省略**，不清洗、不截断——能拆分请求的输入不该被「修一下」继续上送。设备令牌另有自己的判据（长度区间 + 可打印 ASCII），因为它的来源是黑盒 addon。
+- **构建永不抛**。缺头是降级请求，抛错是死消息：identity 解析失败回落到桌面形态，设备令牌拿不到就省略该头。
+
+降级链：设备令牌 → 省略 `X-Device-Token`；版本 → 安装版（Windows 读 `resources/install-manifest.json`，macOS 读 `Info.plist`）→ 分区缓存 → 编译期常量，CLI 版本缺失时整段 `CLI/…` 消失而不发空段。Windows 以前读不到安装版、一律走 fallback `5.5.6`（UA 因此陈旧且缺 CLI 段），phase 2 起与 macOS 走同一条发现链。两条链都**不阻塞发消息**。
+
+取舍与未验证项见[决策记录](../.agents/notes/2026-10-21-gateway-channel-identity.md)。
+
 ## 兼容性契约（改动前必读）
 
 以下行为不是实现细节，改动它们等于丢弃用户磁盘上的数据：

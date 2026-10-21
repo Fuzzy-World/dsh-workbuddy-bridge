@@ -24,8 +24,23 @@ const GLOBAL: WorkBuddyCredential = { ...CN, domain: 'www.workbuddy.ai' }
 /** Deterministic identity so assertions never depend on the machine's Apps. */
 const IDENTITY: ChatIdentity = { clientVersion: '5.5.6', cliVersion: '2.137.1' }
 
-function client(): WorkBuddyUpstreamClient {
-  return new WorkBuddyUpstreamClient({ resolveChatIdentity: async () => IDENTITY })
+/** Deterministic conversation id, so the header can be asserted verbatim. */
+const CONVERSATION_ID = '6ca142f8-d1cc-4353-9aac-ca6baa5c659b'
+
+/**
+ * A client whose identity is fixed and whose device token is absent.
+ *
+ * The token reader is injected even here, where the answer is "none": the
+ * default reader probes the installed App and loads its native SDK, and a wire
+ * test must never touch a real install (nor leave the answer to the machine it
+ * happens to run on).
+ */
+function client(token?: string): WorkBuddyUpstreamClient {
+  return new WorkBuddyUpstreamClient({
+    resolveChatIdentity: async () => IDENTITY,
+    resolveDeviceToken: async () => token,
+    conversationId: CONVERSATION_ID,
+  })
 }
 
 function fakeResponse(body: string, ok = true, status = 200): Response {
@@ -52,7 +67,7 @@ function captureFetch(body: string, ok = true, status = 200) {
 }
 
 describe('chatStream identity', () => {
-  it('presents the CN desktop UA and leaves every other header unchanged', async () => {
+  it('presents the official gateway identity and never the browser-ish family', async () => {
     const wire = captureFetch('{}')
     const result = await client().chatStream(
       CN,
@@ -63,13 +78,41 @@ describe('chatStream identity', () => {
     expect(url).toBe('https://copilot.tencent.com/v2/chat/completions')
     const headers = init.headers as Record<string, string>
     expect(headers['User-Agent']).toBe('WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1')
-    // The shared family stays exactly as before the identity change.
-    expect(headers['X-Requested-With']).toBe('XMLHttpRequest')
-    expect(headers['Origin']).toBe('https://www.codebuddy.cn')
-    expect(headers['Referer']).toBe('https://www.codebuddy.cn/')
-    expect(headers['X-User-Id']).toBe('uid-1')
-    expect(headers['X-Product']).toBe('SaaS')
     expect(headers['Authorization']).toBe('Bearer at')
+    // The official desktop client's channel identity, header by header.
+    expect(headers['x-codebuddy-request']).toBe('1')
+    expect(headers['X-IDE-Type']).toBe('WorkBuddy')
+    expect(headers['X-IDE-Name']).toBe('WorkBuddy')
+    expect(headers['X-IDE-Version']).toBe('5.5.6')
+    expect(headers['X-Private-Data']).toBe('true')
+    expect(headers['X-Agent-Intent']).toBe('craft')
+    expect(headers['X-Agent-Purpose']).toBe('conversation')
+    expect(headers['X-Agent-Type']).toBe('main')
+    expect(headers['X-Product']).toBe('SaaS')
+    expect(headers['Accept']).toBe('application/json')
+    expect(headers['X-Requested-With']).toBe('XMLHttpRequest')
+    expect(headers['X-User-Id']).toBe('uid-1')
+    // The official client omits the enterprise pair entirely for a personal
+    // account; the plugin used to send `X-No-Enterprise-Id: 1`, which is a
+    // statement the official client never makes.
+    expect(headers['X-No-Enterprise-Id']).toBeUndefined()
+    expect(headers['X-Enterprise-Id']).toBeUndefined()
+    expect(headers['X-Domain']).toBe('www.codebuddy.cn')
+    expect(headers['X-Conversation-Id']).toBe(CONVERSATION_ID)
+    // Per-request ids: shape only, never a literal (they differ every call).
+    expect(headers['X-Request-Id']).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
+    )
+    expect(headers['acp-connection-id']).toMatch(/^[0-9a-f-]{36}$/u)
+    expect(headers['traceparent']).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/u)
+    expect(headers['b3']).toMatch(/^[0-9a-f]{32}-[0-9a-f]{16}-1-[0-9a-f]{16}$/u)
+    expect(headers['X-B3-Sampled']).toBe('1')
+    // No device token: the header is omitted, never empty.
+    expect(headers['X-Device-Token']).toBeUndefined()
+    // The official client sends no Origin/Referer — Node does not add CORS
+    // headers, and the plugin used to point them at a different product domain.
+    expect(headers['Origin']).toBeUndefined()
+    expect(headers['Referer']).toBeUndefined()
     expect(headers['X-Refresh-Token']).toBeUndefined()
     // The body is normalized at this layer for both regions (issue #13), so the
     // CN wire carries the forced `stream: true` rather than the caller's bytes.
@@ -79,6 +122,18 @@ describe('chatStream identity', () => {
       messages: [{ role: 'user', content: 'hi' }],
       stream: true,
     })
+  })
+
+  it('carries the device token when one could be produced', async () => {
+    const token = `v3:${'A'.repeat(1054)}`
+    const wire = captureFetch('{}')
+    await client(token).chatStream(
+      CN,
+      JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
+    )
+    const [, init] = wire.last()
+    const headers = init.headers as Record<string, string>
+    expect(headers['X-Device-Token']).toBe(token)
   })
 
   it('names the international product in the UA and still prepends the first system message', async () => {
@@ -135,6 +190,8 @@ describe('probeEffort identity', () => {
       resolveChatIdentity: async () => {
         throw new Error('boom')
       },
+      resolveDeviceToken: async () => undefined,
+      conversationId: CONVERSATION_ID,
     })
     const chatWire = captureFetch('{}')
     const chat = await throwing.chatStream(

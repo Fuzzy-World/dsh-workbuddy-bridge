@@ -20,17 +20,20 @@
  */
 
 import { readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import {
   FALLBACK_APP_VERSION,
-  readBundleVersion,
   resolveAppVersion,
   validAppVersion,
   type AppVersionInfo,
 } from '../protocol/app-version.ts'
+import {
+  findWorkBuddyInstall,
+  readInstallAppVersion,
+  readInstallCliVersion,
+} from './workbuddy-install.ts'
 import type { WorkBuddyRegion } from '../protocol/client.ts'
 
 /**
@@ -72,15 +75,6 @@ export function validCliVersion(value: unknown): value is string {
 }
 
 /** macOS App-bundle roots, searched in the order `app-version.ts` uses. */
-function macAppRoots(): string[] {
-  return ['/Applications', join(homedir(), 'Applications')]
-}
-
-/** Path of the bundled agent CLI's package.json inside an App bundle. */
-function cliPackagePath(bundle: string): string {
-  return join(bundle, 'Contents', 'Resources', 'app.asar.unpacked', 'cli', 'package.json')
-}
-
 /**
  * The bundled agent CLI's real version, or `undefined` when it does not resolve.
  *
@@ -89,31 +83,18 @@ function cliPackagePath(bundle: string): string {
  * `version` wins, otherwise the custom-package value applies, and unreadable
  * or invalid metadata yields `undefined` (the caller drops the `CLI/…` UA
  * token rather than guessing).
+ *
+ * `bundle` is an install root — a `.app` bundle on macOS, an install directory
+ * on Windows — and `platform` selects the layout. It defaults to the macOS
+ * layout because that is the shape this reader was introduced with and the one
+ * the existing fixtures describe.
  */
-export async function readCliVersion(bundle: string): Promise<string | undefined> {
-  let document: unknown
-  try {
-    document = JSON.parse(await readFile(cliPackagePath(bundle), 'utf8'))
-  } catch {
-    return undefined
-  }
-  if (typeof document !== 'object' || document === null || Array.isArray(document)) return undefined
-  const pkg = document as Record<string, unknown>
-  const declared = pkg['version']
-  if (validCliVersion(declared) && declared !== '0.0.0') return declared
-  const publishConfig = pkg['publishConfig']
-  const customPackage =
-    typeof publishConfig === 'object' && publishConfig !== null && !Array.isArray(publishConfig)
-      ? (publishConfig as Record<string, unknown>)
-      : undefined
-  const custom =
-    typeof customPackage?.['customPackage'] === 'object' &&
-    customPackage['customPackage'] !== null &&
-    !Array.isArray(customPackage['customPackage'])
-      ? (customPackage['customPackage'] as Record<string, unknown>)
-      : undefined
-  const customVersion = custom?.['version']
-  return validCliVersion(customVersion) ? customVersion : undefined
+export async function readCliVersion(
+  bundle: string,
+  platform: 'win32' | 'darwin' = 'darwin',
+): Promise<string | undefined> {
+  const version = await readInstallCliVersion({ root: bundle, platform })
+  return validCliVersion(version) ? version : undefined
 }
 
 /**
@@ -142,25 +123,42 @@ export function chatUserAgent(identity: ChatIdentity, region: WorkBuddyRegion): 
 
 /** Constructor dependencies; every reader is injectable so tests never touch a real App or home. */
 export interface ResolveChatIdentityOptions {
-  /** Installed CN desktop-bundle reader; defaults to the macOS probe. */
-  installedCn?: () => Promise<{ version: string; bundle: string } | undefined>
+  /** Installed CN desktop reader; defaults to the platform install probe. */
+  installedCn?: () => Promise<InstalledApp | undefined>
   /** International version resolver; defaults to `app-version.ts`'s chain. */
   resolveIntl?: () => Promise<AppVersionInfo>
-  /** CLI-version reader; defaults to reading the bundle's `cli/package.json`. */
-  cliVersion?: (bundle: string) => Promise<string | undefined>
+  /** CLI-version reader; defaults to reading the install's `cli/package.json`. */
+  cliVersion?: (bundle: string, platform: 'win32' | 'darwin') => Promise<string | undefined>
   /** CN saved-cache path; defaults to `$DSH_HOME/.workbuddy-app-version.json`. */
   cnSavedPath?: string
 }
 
-/** The installed CN desktop bundle, or `undefined` when it is not installed (or not readable). */
-async function installedCnApp(): Promise<{ version: string; bundle: string } | undefined> {
-  if (process.platform !== 'darwin') return undefined
-  for (const root of macAppRoots()) {
-    const bundle = join(root, 'WorkBuddy.app')
-    const version = await readBundleVersion(join(bundle, 'Contents', 'Info.plist'))
-    if (version !== undefined) return { version, bundle }
-  }
-  return undefined
+/** A resolved installed App: its version and the root its CLI lives under. */
+interface InstalledApp {
+  version: string
+  bundle: string
+  /**
+   * Layout of `bundle`. Absent means the macOS `.app` layout — the shape this
+   * seam had before Windows discovery existed, kept optional so a reader that
+   * only cares about the version does not have to name a platform.
+   */
+  platform?: 'win32' | 'darwin'
+}
+
+/**
+ * The installed CN desktop App, or `undefined` when it is not installed.
+ *
+ * Both layouts resolve through {@link findWorkBuddyInstall}. This used to read
+ * macOS bundles only, so a Windows install was invisible and every chat request
+ * presented the compiled-in fallback version — one of the differences the
+ * upstream's channel check reads as "not the official client".
+ */
+async function installedCnApp(): Promise<InstalledApp | undefined> {
+  const install = await findWorkBuddyInstall()
+  if (install === undefined) return undefined
+  const version = await readInstallAppVersion(install)
+  if (!validAppVersion(version)) return undefined
+  return { version, bundle: install.root, platform: install.platform }
 }
 
 /** Default CN saved-cache path. */
@@ -223,7 +221,10 @@ async function resolveCnIdentity(options: ResolveChatIdentityOptions): Promise<C
   const savedPath = options.cnSavedPath ?? cnSavedVersionPath()
   const installed = await (options.installedCn ?? installedCnApp)()
   if (installed !== undefined && validAppVersion(installed.version)) {
-    const cliVersion = await (options.cliVersion ?? readCliVersion)(installed.bundle)
+    const cliVersion = await (options.cliVersion ?? readCliVersion)(
+      installed.bundle,
+      installed.platform ?? 'darwin',
+    )
     const identity: ChatIdentity = {
       clientVersion: installed.version,
       ...(cliVersion !== undefined && validCliVersion(cliVersion) ? { cliVersion } : {}),
@@ -269,7 +270,10 @@ async function resolveGlobalIdentity(options: ResolveChatIdentityOptions): Promi
   const clientVersion = validAppVersion(info.version) ? info.version : FALLBACK_APP_VERSION
   let cliVersion: string | undefined
   if (info.bundle !== undefined) {
-    const read = await (options.cliVersion ?? readCliVersion)(info.bundle)
+    const read = await (options.cliVersion ?? readCliVersion)(
+      info.bundle,
+      info.platform ?? 'darwin',
+    )
     if (read !== undefined && validCliVersion(read)) cliVersion = read
   }
   return { clientVersion, ...(cliVersion === undefined ? {} : { cliVersion }) }

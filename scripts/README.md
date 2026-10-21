@@ -2,7 +2,7 @@
 
 职责：见 [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 
-脚本分两类：**离线**的（CI 或发布门禁里跑）与**真机 / 一次性**的（托管 runner 上验不了的那一段）。
+脚本分两类：**离线**的（CI、发布门禁或改头后自检里跑）与**真机 / 一次性**的（托管 runner 上验不了的那一段）。
 
 ## 离线
 
@@ -14,6 +14,7 @@
 | `compat-swap.mjs` | 把声明面换到某条线 / 某个版本前缀族，清锁清树重装，再回验实装版本 | compat.yml 的 swap 作业；本地复现巡检 | **会改写 `package.json`**（见 [AGENTS.md](AGENTS.md)） |
 | `report-compat-failure.mjs` | 把巡检的红变成一条固定标题的跟踪 issue，同一处失败不重复刷 | compat.yml 的失败步骤 | `gh` 可用且有 `issues: write` |
 | `verify-shim-hardening.mjs` | loopback shim 的加固面（六个原始 HTTP 请求各验一条） | 改 shim 后；CI 的 verify 步 | —— |
+| `gateway-parity.mjs` | 插件 chat 请求与官方客户端抓包参考逐头对比（`missing` / `extra` / `value-mismatch` / `ok`，id 与 trace 按形态判） | 改 chat/probe 头后；`chatStream` 改完自查 | 先 `pnpm build`（读 `lib/index.js` 产物）；离线、默认伪凭据，`--real-credential` 才尝试读本机；四类差异见 [gateway-parity.md](gateway-parity.md) |
 
 ## 真机 / 一次性
 

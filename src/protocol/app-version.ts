@@ -16,10 +16,14 @@
  */
 
 import { readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import {
+  findWorkBuddyInstall,
+  readInstallAppVersion,
+  readPlistVersion,
+} from './workbuddy-install.ts'
 
 /**
  * Last-resort UA version.
@@ -41,8 +45,10 @@ export type WorkBuddyAppVersionSource = 'installed' | 'saved' | 'fallback'
 export interface AppVersionInfo {
   version: string
   source: WorkBuddyAppVersionSource
-  /** Basename of the App bundle the version was read from, when installed. */
+  /** Install root the version was read from, when installed (macOS bundle, Windows install dir). */
   bundle?: string
+  /** Which layout `bundle` follows; absent when nothing was installed. */
+  platform?: 'win32' | 'darwin'
 }
 
 /**
@@ -56,11 +62,6 @@ export function validAppVersion(value: unknown): value is string {
   return typeof value === 'string' && /^\d{1,6}(?:\.\d{1,6}){1,3}$/u.test(value)
 }
 
-/** macOS App-bundle roots: system-wide first, then the user's own install. */
-function macAppRoots(): string[] {
-  return ['/Applications', join(homedir(), 'Applications')]
-}
-
 /**
  * Read `CFBundleShortVersionString` out of an `Info.plist`.
  *
@@ -68,19 +69,13 @@ function macAppRoots(): string[] {
  * `<string>` values and a regex would be one unrelated key away from
  * returning the wrong one. A binary plist has no `<dict>` in its bytes and is
  * reported as unreadable (the saved value then applies) rather than guessed at.
+ *
+ * The parsing itself lives in `workbuddy-install.ts`, which reads the same key
+ * for the "is this a WorkBuddy install" question; only the header-safety
+ * judgement stays here.
  */
 export async function readBundleVersion(plistPath: string): Promise<string | undefined> {
-  let text: string
-  try {
-    text = await readFile(plistPath, 'utf8')
-  } catch {
-    return undefined
-  }
-  // `<key>CFBundleShortVersionString</key>` followed by the next `<string>`.
-  const match = /<key>\s*CFBundleShortVersionString\s*<\/key>\s*<string>([^<]*)<\/string>/u.exec(
-    text,
-  )
-  const version = match?.[1]?.trim()
+  const version = await readPlistVersion(plistPath)
   return validAppVersion(version) ? version : undefined
 }
 
@@ -88,20 +83,21 @@ export async function readBundleVersion(plistPath: string): Promise<string | und
  * The installed international App's version, or `undefined` when it is not
  * installed (or not readable).
  *
- * Windows and Linux have no verified bundle-metadata location yet, so this
- * returns `undefined` there and the saved/fallback value is used instead of
- * guessing a path — the same discipline the credential discovery follows.
+ * Both supported layouts are read through {@link findWorkBuddyInstall}: a macOS
+ * `.app` bundle and a Windows install directory. Windows used to return
+ * `undefined` here, which meant the catalog User-Agent and the chat identity
+ * fell back to compiled-in versions on every Windows machine even when the App
+ * was installed — the divergence the 11128 channel check reads as "not the
+ * official client".
  */
 export async function installedAppVersion(): Promise<
-  { version: string; bundle: string } | undefined
+  { version: string; bundle: string; platform: 'win32' | 'darwin' } | undefined
 > {
-  if (process.platform !== 'darwin') return undefined
-  for (const root of macAppRoots()) {
-    const bundle = join(root, 'WorkBuddy AI.app')
-    const version = await readBundleVersion(join(bundle, 'Contents', 'Info.plist'))
-    if (version !== undefined) return { version, bundle }
-  }
-  return undefined
+  const install = await findWorkBuddyInstall()
+  if (install === undefined) return undefined
+  const version = await readInstallAppVersion(install)
+  if (!validAppVersion(version)) return undefined
+  return { version, bundle: install.root, platform: install.platform }
 }
 
 /** Saved-version file path under the Harness home. */
